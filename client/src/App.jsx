@@ -112,7 +112,7 @@ function App() {
             <span className="text-lg">{lang === "en" ? "🇺🇸" : "🇧🇷"}</span>
           </button>
           <a
-            href="https://github.com"
+            href="https://github.com/DARIO-engineer/RepoLens.AI"
             target="_blank"
             rel="noopener noreferrer"
             className="text-text-muted hover:text-text transition-colors"
