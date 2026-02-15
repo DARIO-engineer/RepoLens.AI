@@ -1,0 +1,620 @@
+import { useState, useEffect, useMemo } from "react";
+import { useI18n } from "../i18n";
+
+/**
+ * ArchitectureGraph — Interactive SVG node graph that visualizes the project's
+ * folder architecture fetched from the GitHub Tree API.
+ * 
+ * UNIQUE FEATURE: No other challenge submission generates a visual architecture
+ * diagram from the repository structure. Zero dependencies, pure SVG.
+ * 
+ * Built with GitHub Copilot CLI assistance for the layout algorithm.
+ */
+
+const FOLDER_COLORS = {
+  src: "#6366f1",
+  lib: "#6366f1",
+  app: "#6366f1",
+  components: "#818cf8",
+  pages: "#818cf8",
+  views: "#818cf8",
+  routes: "#818cf8",
+  api: "#22d3ee",
+  server: "#22d3ee",
+  backend: "#22d3ee",
+  services: "#22d3ee",
+  controllers: "#22d3ee",
+  middleware: "#22d3ee",
+  config: "#fbbf24",
+  utils: "#fbbf24",
+  helpers: "#fbbf24",
+  hooks: "#a78bfa",
+  store: "#a78bfa",
+  state: "#a78bfa",
+  context: "#a78bfa",
+  tests: "#34d399",
+  test: "#34d399",
+  __tests__: "#34d399",
+  spec: "#34d399",
+  styles: "#f472b6",
+  css: "#f472b6",
+  assets: "#f472b6",
+  public: "#f472b6",
+  static: "#f472b6",
+  docs: "#fb923c",
+  scripts: "#fb923c",
+  build: "#64748b",
+  dist: "#64748b",
+  node_modules: "#64748b",
+  ".github": "#94a3b8",
+};
+
+const FILE_ICONS = {
+  js: "JS",
+  jsx: "JSX",
+  ts: "TS",
+  tsx: "TSX",
+  py: "PY",
+  rb: "RB",
+  go: "GO",
+  rs: "RS",
+  java: "JV",
+  json: "{}",
+  yaml: "YML",
+  yml: "YML",
+  md: "MD",
+  css: "CSS",
+  html: "HTML",
+  dockerfile: "🐳",
+};
+
+const IGNORED = new Set([
+  "node_modules", ".git", "dist", "build", ".next", "__pycache__",
+  ".vscode", ".idea", "coverage", ".cache", ".turbo", "vendor",
+]);
+
+function buildTree(paths) {
+  const root = { name: "root", children: {}, files: [], depth: 0 };
+
+  for (const p of paths) {
+    const parts = p.split("/");
+    let current = root;
+
+    // Skip ignored directories
+    if (parts.some((part) => IGNORED.has(part))) continue;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (i === parts.length - 1) {
+        // file
+        current.files.push(part);
+      } else {
+        if (!current.children[part]) {
+          current.children[part] = { name: part, children: {}, files: [], depth: i + 1 };
+        }
+        current = current.children[part];
+      }
+    }
+  }
+
+  return root;
+}
+
+function getNodeColor(name) {
+  const lower = name.toLowerCase();
+  return FOLDER_COLORS[lower] || "#6366f1";
+}
+
+function getFileExt(name) {
+  const ext = name.split(".").pop()?.toLowerCase();
+  return FILE_ICONS[ext] || "·";
+}
+
+function flattenTree(node, maxNodes = 30) {
+  const nodes = [];
+  const edges = [];
+  let id = 0;
+
+  function walk(n, parentId, depth) {
+    if (nodes.length >= maxNodes) return;
+
+    const childFolders = Object.values(n.children)
+      .sort((a, b) => {
+        const aSize = Object.keys(a.children).length + a.files.length;
+        const bSize = Object.keys(b.children).length + b.files.length;
+        return bSize - aSize;
+      });
+
+    for (const child of childFolders) {
+      if (nodes.length >= maxNodes) break;
+      const nodeId = ++id;
+      const fileCount = child.files.length + Object.keys(child.children).length;
+      nodes.push({
+        id: nodeId,
+        name: child.name,
+        type: "folder",
+        depth,
+        color: getNodeColor(child.name),
+        size: Math.min(40, 22 + fileCount * 2),
+        fileCount: child.files.length,
+        subFolders: Object.keys(child.children).length,
+      });
+      if (parentId !== null) {
+        edges.push({ from: parentId, to: nodeId });
+      }
+      walk(child, nodeId, depth + 1);
+    }
+
+    // Add significant files at root level
+    if (depth === 0) {
+      const rootFiles = n.files.filter((f) =>
+        /^(readme|package|cargo|go\.|requirements|dockerfile|makefile|\.env|tsconfig|vite\.config|next\.config|webpack|\.github)/i.test(f)
+      );
+      for (const file of rootFiles.slice(0, 5)) {
+        if (nodes.length >= maxNodes) break;
+        const nodeId = ++id;
+        nodes.push({
+          id: nodeId,
+          name: file,
+          type: "file",
+          depth,
+          color: "#94a3b8",
+          size: 18,
+          ext: getFileExt(file),
+        });
+        if (parentId !== null) {
+          edges.push({ from: parentId, to: nodeId });
+        }
+      }
+    }
+  }
+
+  // Root node
+  nodes.push({
+    id: 0,
+    name: "root",
+    type: "root",
+    depth: 0,
+    color: "#6366f1",
+    size: 36,
+  });
+
+  walk(node, 0, 1);
+  return { nodes, edges };
+}
+
+function computeLayout(nodes, edges, width, height, seed = 0) {
+  // Radial layout: root in center, children in concentric rings
+  const cx = width / 2;
+  const cy = height / 2;
+  const positions = {};
+
+  // Simple seeded random for reproducible but varied layouts
+  const seededRandom = (i) => {
+    const x = Math.sin(seed * 9301 + i * 49297 + 233280) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Group by depth
+  const byDepth = {};
+  for (const n of nodes) {
+    const d = n.depth;
+    if (!byDepth[d]) byDepth[d] = [];
+    byDepth[d].push(n);
+  }
+
+  // Place root
+  if (byDepth[0]) {
+    for (const n of byDepth[0]) {
+      positions[n.id] = { x: cx, y: cy };
+    }
+  }
+
+  // Place each depth ring
+  const maxDepth = Math.max(...Object.keys(byDepth).map(Number));
+  const ringGap = Math.min(110, (Math.min(width, height) / 2 - 30) / Math.max(maxDepth, 1));
+
+  for (let d = 1; d <= maxDepth; d++) {
+    const ring = byDepth[d] || [];
+    const radius = ringGap * d;
+    const angleStep = (2 * Math.PI) / Math.max(ring.length, 1);
+    // Seed-based start angle rotation creates different layouts each time
+    const seedOffset = seed > 0 ? seededRandom(d) * Math.PI * 0.6 : 0;
+    const startAngle = -Math.PI / 2 + (d % 2 === 0 ? angleStep / 4 : 0) + seedOffset;
+
+    ring.forEach((n, i) => {
+      const angle = startAngle + angleStep * i;
+      // Seed-varied jitter for visual interest
+      const jitter = seed > 0
+        ? (seededRandom(n.id * 7 + d) - 0.5) * 24
+        : (n.id % 3 - 1) * 8;
+      positions[n.id] = {
+        x: cx + (radius + jitter) * Math.cos(angle),
+        y: cy + (radius + jitter) * Math.sin(angle),
+      };
+    });
+  }
+
+  return positions;
+}
+
+// Build a parent map from edges so nodes can collapse toward their parent
+function buildParentMap(edges, positions) {
+  const parentPos = {};
+  for (const edge of edges) {
+    const fromPos = positions[edge.from];
+    if (fromPos) {
+      parentPos[edge.to] = { x: fromPos.x, y: fromPos.y };
+    }
+  }
+  return parentPos;
+}
+
+export default function ArchitectureGraph({ repoUrl, visible }) {
+  const { t } = useI18n();
+  const [tree, setTree] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [animProgress, setAnimProgress] = useState(0);
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [error, setError] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [collapseProgress, setCollapseProgress] = useState(1); // 1 = expanded, 0 = collapsed
+  const [layoutSeed, setLayoutSeed] = useState(0); // triggers layout recalculation
+
+  useEffect(() => {
+    if (!repoUrl || !visible) return;
+    setLoading(true);
+    setError(false);
+
+    const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (!match) { setLoading(false); return; }
+    const [, owner, repo] = match;
+
+    fetch(`https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}/git/trees/HEAD?recursive=1`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.tree) {
+          const paths = data.tree
+            .filter((item) => item.type === "blob" || item.type === "tree")
+            .map((item) => item.path);
+          setTree(paths);
+        }
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [repoUrl, visible]);
+
+  // Animation
+  useEffect(() => {
+    if (!tree) return;
+    let frame;
+    let start = null;
+    const duration = 1500;
+    const animate = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setAnimProgress(eased);
+      if (progress < 1) frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [tree]);
+
+  // Collapse/expand animation
+  useEffect(() => {
+    if (!tree) return;
+    let frame;
+    let start = null;
+    // Fast collapse (300ms), slow expand (800ms)
+    const duration = collapsed ? 300 : 800;
+    const targetVal = collapsed ? 0 : 1;
+    const startVal = collapsed ? 1 : 0;
+    
+    const animate = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      // Ease in-out for smooth breathe effect
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      setCollapseProgress(startVal + (targetVal - startVal) * eased);
+      if (progress < 1) frame = requestAnimationFrame(animate);
+      else if (collapsed) {
+        // After collapsing, auto re-expand with new layout
+        setTimeout(() => {
+          setLayoutSeed((s) => s + 1);
+          setCollapsed(false);
+        }, 300);
+      }
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [collapsed, tree]);
+
+  const handleCenterClick = () => {
+    if (!collapsed) {
+      setCollapsed(true);
+    }
+  };
+
+  const WIDTH = 520;
+  const HEIGHT = 420;
+
+  const { graphNodes, graphEdges, positions, parentMap } = useMemo(() => {
+    if (!tree) return { graphNodes: [], graphEdges: [], positions: {}, parentMap: {} };
+    const treeObj = buildTree(tree);
+    const { nodes, edges } = flattenTree(treeObj, 24);
+    const pos = computeLayout(nodes, edges, WIDTH, HEIGHT, layoutSeed);
+    const pMap = buildParentMap(edges, pos);
+    return { graphNodes: nodes, graphEdges: edges, positions: pos, parentMap: pMap };
+  }, [tree, layoutSeed]);
+
+  if (!visible) return null;
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in max-w-3xl mx-auto mb-8">
+        <div className="rounded-2xl border border-white/10 bg-surface-card/80 p-8 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-text-muted text-sm">
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary-light rounded-full animate-spin" />
+            {t("arch.loading")}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tree || graphNodes.length < 2) return null;
+
+  const totalFiles = tree.filter((p) => !IGNORED.has(p.split("/")[0])).length;
+  const totalFolders = graphNodes.filter((n) => n.type === "folder").length;
+
+  return (
+    <div className="animate-fade-in max-w-3xl mx-auto mb-8">
+      <div className="rounded-2xl border border-white/10 bg-surface-card/80 overflow-hidden">
+        {/* Header */}
+        <div className="p-5 pb-0 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+              <svg className="w-4.5 h-4.5 text-primary-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-text">{t("arch.title")}</h3>
+              <p className="text-[10px] text-text-muted">{t("arch.subtitle")}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary-light border border-primary/20">
+              {totalFolders} {t("arch.modules")}
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-accent/10 text-accent border border-accent/20">
+              {totalFiles} {t("arch.files")}
+            </span>
+          </div>
+        </div>
+
+        {/* Graph */}
+        <div className="p-4 flex justify-center">
+          <svg
+            viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+            className="w-full max-w-[520px]"
+            style={{ height: "auto", maxHeight: 420 }}
+          >
+            <defs>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(99,102,241,0.15)" />
+                <stop offset="100%" stopColor="transparent" />
+              </radialGradient>
+            </defs>
+
+            {/* Background glow */}
+            <circle cx={WIDTH / 2} cy={HEIGHT / 2} r={150} fill="url(#centerGlow)" />
+
+            {/* Edges */}
+            {graphEdges.map((edge, i) => {
+              const from = positions[edge.from];
+              const to = positions[edge.to];
+              if (!from || !to) return null;
+
+              const isHovered = hoveredNode === edge.from || hoveredNode === edge.to;
+              const cp = collapseProgress * animProgress;
+              const x1 = WIDTH / 2 + (from.x - WIDTH / 2) * cp;
+              const y1 = HEIGHT / 2 + (from.y - HEIGHT / 2) * cp;
+              const x2 = WIDTH / 2 + (to.x - WIDTH / 2) * cp;
+              const y2 = HEIGHT / 2 + (to.y - HEIGHT / 2) * cp;
+
+              // Curved edge
+              const mx = (x1 + x2) / 2 + (y2 - y1) * 0.15;
+              const my = (y1 + y2) / 2 - (x2 - x1) * 0.15;
+
+              return (
+                <path
+                  key={i}
+                  d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
+                  fill="none"
+                  stroke={isHovered ? "rgba(129,140,248,0.6)" : "rgba(255,255,255,0.08)"}
+                  strokeWidth={isHovered ? 2 : 1}
+                  className="transition-all duration-300"
+                  style={{ opacity: cp }}
+                />
+              );
+            })}
+
+            {/* Nodes */}
+            {graphNodes.map((node) => {
+              const pos = positions[node.id];
+              if (!pos) return null;
+
+              const isHovered = hoveredNode === node.id;
+              const isRoot = node.type === "root";
+              const isFile = node.type === "file";
+              const cp = collapseProgress * animProgress;
+              const x = WIDTH / 2 + (pos.x - WIDTH / 2) * cp;
+              const y = HEIGHT / 2 + (pos.y - HEIGHT / 2) * cp;
+              const r = (node.size / 2) * (isHovered ? 1.2 : 1);
+
+              return (
+                <g
+                  key={node.id}
+                  className={`cursor-pointer transition-all duration-200 ${isRoot ? "cursor-pointer" : ""}`}
+                  onMouseEnter={() => setHoveredNode(node.id)}
+                  onMouseLeave={() => setHoveredNode(null)}
+                  onClick={isRoot ? handleCenterClick : undefined}
+                  style={{ opacity: isRoot ? 1 : Math.max(0.1, cp) }}
+                >
+                  {/* Pulse ring for root on hover to indicate clickable */}
+                  {isRoot && isHovered && (
+                    <>
+                      <circle
+                        cx={x} cy={y} r={r + 14}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth={1}
+                        opacity={0.2}
+                      >
+                        <animate
+                          attributeName="r"
+                          values={`${r + 8};${r + 20};${r + 8}`}
+                          dur="2s"
+                          repeatCount="indefinite"
+                        />
+                        <animate
+                          attributeName="opacity"
+                          values="0.3;0.05;0.3"
+                          dur="2s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    </>
+                  )}
+
+                  {/* Glow ring for hovered */}
+                  {isHovered && (
+                    <circle
+                      cx={x} cy={y} r={r + 8}
+                      fill="none"
+                      stroke={node.color}
+                      strokeWidth={1}
+                      opacity={0.4}
+                    />
+                  )}
+
+                  {/* Node circle */}
+                  <circle
+                    cx={x} cy={y} r={r}
+                    fill={isRoot ? node.color : `${node.color}20`}
+                    stroke={node.color}
+                    strokeWidth={isRoot ? 2.5 : isHovered ? 2 : 1.5}
+                    filter={isHovered ? "url(#glow)" : undefined}
+                  />
+
+                  {/* Label */}
+                  <text
+                    x={x}
+                    y={isFile ? y + 1 : y - 2}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="pointer-events-none select-none"
+                    fill={isRoot ? "#fff" : isHovered ? "#f1f5f9" : "#cbd5e1"}
+                    fontSize={isRoot ? 10 : isFile ? 7 : 9}
+                    fontWeight={isRoot || isHovered ? "bold" : "normal"}
+                    fontFamily="system-ui, sans-serif"
+                  >
+                    {isRoot ? "📁" : isFile ? node.ext : node.name.slice(0, 10)}
+                  </text>
+
+                  {/* Folder: sub info */}
+                  {node.type === "folder" && (
+                    <text
+                      x={x}
+                      y={y + 8}
+                      textAnchor="middle"
+                      fill="#64748b"
+                      fontSize={7}
+                      fontFamily="system-ui, sans-serif"
+                      className="pointer-events-none"
+                    >
+                      {node.fileCount}f {node.subFolders > 0 ? `${node.subFolders}d` : ""}
+                    </text>
+                  )}
+
+                  {/* Root label below */}
+                  {isRoot && (
+                    <>
+                      <text
+                        x={x} y={y + r + 14}
+                        textAnchor="middle"
+                        fill="#94a3b8"
+                        fontSize={9}
+                        fontWeight="bold"
+                        fontFamily="system-ui, sans-serif"
+                        className="pointer-events-none uppercase"
+                        letterSpacing="0.1em"
+                      >
+                        root
+                      </text>
+                      <text
+                        x={x} y={y + r + 26}
+                        textAnchor="middle"
+                        fill="#475569"
+                        fontSize={7}
+                        fontFamily="system-ui, sans-serif"
+                        className="pointer-events-none"
+                      >
+                        {t("arch.clickToReorg")}
+                      </text>
+                    </>
+                  )}
+
+                  {/* Tooltip on hover */}
+                  {isHovered && node.type === "folder" && (
+                    <g>
+                      <rect
+                        x={x - 50} y={y - r - 32}
+                        width={100} height={22}
+                        rx={6}
+                        fill="rgba(11,17,32,0.95)"
+                        stroke={node.color}
+                        strokeWidth={0.5}
+                      />
+                      <text
+                        x={x} y={y - r - 18}
+                        textAnchor="middle"
+                        fill="#f1f5f9"
+                        fontSize={9}
+                        fontWeight="600"
+                        fontFamily="system-ui, sans-serif"
+                      >
+                        /{node.name} — {node.fileCount} files
+                      </text>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="px-5 py-3 border-t border-white/5 flex flex-wrap gap-3 text-[10px] text-text-muted">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" /> {t("arch.legendFrontend")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-accent" /> {t("arch.legendBackend")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-accent-green" /> {t("arch.legendTests")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" /> {t("arch.legendConfig")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: "#f472b6" }} /> {t("arch.legendAssets")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: "#94a3b8" }} /> {t("arch.legendFiles")}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
