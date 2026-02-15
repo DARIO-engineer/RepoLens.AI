@@ -221,8 +221,8 @@ function App() {
         {/* Results */}
         <AnalysisResult analysis={analysis} loading={loading} duration={duration} repoName={repoName} />
 
-        {/* Copilot CLI Showcase */}
-        {analysis && <CopilotBanner />}
+        {/* Copilot CLI Showcase — temporary until 2026-02-16 15:00 BRT */}
+        {analysis && Date.now() < new Date("2026-02-16T15:00:00-03:00").getTime() && <CopilotBanner />}
       </main>
 
       {/* Footer */}
