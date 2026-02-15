@@ -335,19 +335,31 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (!match) { setLoading(false); return; }
     const [, owner, repo] = match;
+    const base = `https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}`;
 
-    fetch(`https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}/git/trees/HEAD?recursive=1`)
-      .then((r) => r.ok ? r.json() : Promise.reject("API error"))
+    // Try recursive tree first; fall back to top-level only for huge repos
+    fetch(`${base}/git/trees/HEAD?recursive=1`)
+      .then((r) => {
+        if (!r.ok) return Promise.reject("API error");
+        return r.json().catch(() => null); // JSON parse can fail on truncated response
+      })
       .then((data) => {
-        if (data?.tree) {
+        if (data?.tree && !data.truncated) {
           const paths = data.tree
             .filter((item) => item.type === "blob" || item.type === "tree")
             .map((item) => item.path);
-          if (paths.length > 0) setTree(paths);
-          else setError(true);
-        } else {
-          setError(true);
+          if (paths.length > 0) { setTree(paths); return; }
         }
+        // Fallback: non-recursive (top-level only) for huge repos
+        return fetch(`${base}/git/trees/HEAD`)
+          .then((r) => r.ok ? r.json() : Promise.reject("API error"))
+          .then((fallback) => {
+            if (fallback?.tree) {
+              const paths = fallback.tree.map((item) => item.path);
+              if (paths.length > 0) { setTree(paths); return; }
+            }
+            setError(true);
+          });
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));

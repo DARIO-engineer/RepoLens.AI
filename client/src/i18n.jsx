@@ -37,6 +37,11 @@ const translations = {
     "stats.daysAgo": "d ago",
     "stats.langDNA": "Language DNA",
     "stats.healthRadar": "Health Radar",
+    "health.community": "Community",
+    "health.activity": "Activity",
+    "health.documentation": "Documentation",
+    "health.popularity": "Popularity",
+    "health.maintenance": "Maintenance",
 
     // ArchitectureGraph
     "arch.title": "Architecture Map",
@@ -231,6 +236,11 @@ const translations = {
     "stats.daysAgo": "d atrás",
     "stats.langDNA": "DNA Linguístico",
     "stats.healthRadar": "Radar de Saúde",
+    "health.community": "Comunidade",
+    "health.activity": "Atividade",
+    "health.documentation": "Documentação",
+    "health.popularity": "Popularidade",
+    "health.maintenance": "Manutenção",
 
     // ArchitectureGraph
     "arch.title": "Mapa Arquitetural",

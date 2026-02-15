@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
+import { useI18n } from "../i18n";
 
 /**
  * HealthRadar — SVG pentagon radar chart that evaluates a repo on 5 dimensions.
  * Scores are computed from GitHub API metadata (no AI needed — instant).
  */
 
-const DIMENSIONS = [
-  { key: "community", label: "Comunidade", icon: "👥" },
-  { key: "activity", label: "Atividade", icon: "⚡" },
-  { key: "documentation", label: "Documentação", icon: "📄" },
-  { key: "popularity", label: "Popularidade", icon: "⭐" },
-  { key: "maintenance", label: "Manutenção", icon: "🔧" },
+const DIMENSION_KEYS = [
+  { key: "community", icon: "👥" },
+  { key: "activity", icon: "⚡" },
+  { key: "documentation", icon: "📄" },
+  { key: "popularity", icon: "⭐" },
+  { key: "maintenance", icon: "🔧" },
 ];
 
 function computeScores(repoData) {
@@ -74,6 +75,7 @@ function polarToCartesian(cx, cy, r, angleDeg) {
 export default function HealthRadar({ repoData }) {
   const [animProgress, setAnimProgress] = useState(0);
   const [hoveredDim, setHoveredDim] = useState(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!repoData) return;
@@ -95,7 +97,7 @@ export default function HealthRadar({ repoData }) {
 
   const scores = computeScores(repoData);
   const overall = Math.round(
-    DIMENSIONS.reduce((sum, d) => sum + (scores[d.key] || 0), 0) / DIMENSIONS.length
+    DIMENSION_KEYS.reduce((sum, d) => sum + (scores[d.key] || 0), 0) / DIMENSION_KEYS.length
   );
 
   // SVG params
@@ -103,13 +105,13 @@ export default function HealthRadar({ repoData }) {
   const cx = size / 2, cy = size / 2;
   const maxR = 85;
   const levels = 4;
-  const angleStep = 360 / DIMENSIONS.length;
+  const angleStep = 360 / DIMENSION_KEYS.length;
 
   // Grid polygons (background rings)
   const gridPolygons = [];
   for (let lvl = 1; lvl <= levels; lvl++) {
     const r = (maxR / levels) * lvl;
-    const points = DIMENSIONS.map((_, i) => {
+    const points = DIMENSION_KEYS.map((_, i) => {
       const p = polarToCartesian(cx, cy, r, i * angleStep);
       return `${p.x},${p.y}`;
     }).join(" ");
@@ -117,7 +119,7 @@ export default function HealthRadar({ repoData }) {
   }
 
   // Data polygon
-  const dataPoints = DIMENSIONS.map((d, i) => {
+  const dataPoints = DIMENSION_KEYS.map((d, i) => {
     const score = (scores[d.key] || 0) / 100;
     const r = maxR * score * animProgress;
     return polarToCartesian(cx, cy, r, i * angleStep);
@@ -125,9 +127,9 @@ export default function HealthRadar({ repoData }) {
   const dataPolygon = dataPoints.map((p) => `${p.x},${p.y}`).join(" ");
 
   // Label positions (slightly outside)
-  const labels = DIMENSIONS.map((d, i) => {
+  const labels = DIMENSION_KEYS.map((d, i) => {
     const p = polarToCartesian(cx, cy, maxR + 22, i * angleStep);
-    return { ...d, x: p.x, y: p.y, score: scores[d.key] || 0 };
+    return { ...d, label: t(`health.${d.key}`), x: p.x, y: p.y, score: scores[d.key] || 0 };
   });
 
   // Overall score color
@@ -148,7 +150,7 @@ export default function HealthRadar({ repoData }) {
             />
           ))}
           {/* Axis lines */}
-          {DIMENSIONS.map((_, i) => {
+          {DIMENSION_KEYS.map((_, i) => {
             const p = polarToCartesian(cx, cy, maxR, i * angleStep);
             return (
               <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
@@ -165,7 +167,7 @@ export default function HealthRadar({ repoData }) {
           />
           {/* Data points */}
           {dataPoints.map((p, i) => {
-            const dim = DIMENSIONS[i];
+            const dim = DIMENSION_KEYS[i];
             const isHov = hoveredDim === dim.key;
             return (
               <circle
