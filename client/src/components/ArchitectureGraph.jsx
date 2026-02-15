@@ -318,6 +318,16 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
   const [collapseProgress, setCollapseProgress] = useState(1); // 1 = expanded, 0 = collapsed
   const [layoutSeed, setLayoutSeed] = useState(0); // triggers layout recalculation
 
+  // Reset tree when repo URL changes
+  useEffect(() => {
+    setTree(null);
+    setError(false);
+    setAnimProgress(0);
+    setCollapsed(false);
+    setCollapseProgress(1);
+    setLayoutSeed(0);
+  }, [repoUrl]);
+
   useEffect(() => {
     if (!repoUrl || !visible || tree) return;
     setLoading(true);

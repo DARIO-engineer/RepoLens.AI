@@ -10,7 +10,7 @@ export default function RepoStats({ repoUrl, visible }) {
   const { t } = useI18n();
 
   useEffect(() => {
-    if (!repoUrl || !visible) return;
+    if (!repoUrl || !visible || repoData) return;
 
     const fetchRepo = async () => {
       setLoading(true);
@@ -28,9 +28,27 @@ export default function RepoStats({ repoUrl, visible }) {
     };
 
     fetchRepo();
-  }, [repoUrl, visible]);
+  }, [repoUrl, visible, repoData]);
 
-  if (!visible || loading || !repoData) return null;
+  // Reset data when repo URL changes
+  useEffect(() => {
+    setRepoData(null);
+  }, [repoUrl]);
+
+  if (!visible) return null;
+
+  if (loading || !repoData) {
+    return (
+      <div className="animate-fade-in max-w-3xl mx-auto mb-8">
+        <div className="rounded-2xl border border-white/10 bg-surface-card/80 p-8 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-text-muted text-sm">
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary-light rounded-full animate-spin" />
+            {t("stats.loading", "Loading stats...")}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n));
 
