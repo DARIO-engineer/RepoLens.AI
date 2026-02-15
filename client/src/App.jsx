@@ -67,10 +67,12 @@ function App() {
     } catch (err) {
       setDuration(Date.now() - start);
       const backendError = err.response?.data;
-      const message =
-        backendError?.error || err.message || "Error analyzing repository.";
+      let message = backendError?.error || err.message || "Error analyzing repository.";
+      if (typeof message === "object") message = JSON.stringify(message);
+      let details = backendError?.details || "";
+      if (typeof details === "object") details = JSON.stringify(details);
       const hint = backendError?.hint ? `\n${backendError.hint}` : "";
-      setError(`${message}${hint}`);
+      setError(`${message}${details ? "\n" + details : ""}${hint}`);
     } finally {
       setLoading(false);
     }

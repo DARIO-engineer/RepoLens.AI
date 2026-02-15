@@ -41,7 +41,7 @@ The app also features:
 
 ## Demo
 
-**🔗 Live App:** [YOUR_VERCEL_URL_HERE]
+**🔗 Live App:** [repolens-ai.vercel.app](https://repolens-ai.vercel.app)
 
 **📦 Repository:** [github.com/DARIO-engineer/repolens](https://github.com/DARIO-engineer/repolens)
 
