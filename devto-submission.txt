@@ -1,0 +1,142 @@
+---
+title: "RepoLens AI — Understand Any GitHub Repository in Seconds 🔍"
+published: true
+tags: devchallenge, github, ai, react
+---
+
+This is a submission for the [GitHub Copilot CLI Challenge](https://dev.to/challenges/github-2026-01-21)
+
+## What I Built
+
+**RepoLens AI** is an AI-powered web application that instantly analyzes any public GitHub repository and delivers a comprehensive technical report — complete with stunning, zero-dependency SVG visualizations you won't find anywhere else.
+
+Paste a GitHub URL, and in seconds you get:
+- 🏗️ Architectural Summary
+- 🛠️ Full Stack Breakdown
+- 💪 Strengths & ⚠️ Weaknesses
+- 💡 Improvement Suggestions
+- 🌱 Beginner-Friendly Tasks
+
+But what truly sets RepoLens AI apart are its **5 unique visualizations**, all built in pure SVG with zero chart libraries:
+
+| Visualization | What it does |
+|---|---|
+| 🌈 **Language Ring** | Animated donut chart with official GitHub language colors |
+| 📡 **Health Radar** | Pentagon radar chart scoring 5 health dimensions |
+| 🗺️ **Architecture Graph** | Interactive node graph of the project's folder structure with collapse/expand breathe animation |
+| 🧬 **Repo Personality** | Myers-Briggs style analysis — assigns an archetype (Pioneer, Guardian, Architect, Sprinter, Scholar, Community) with traits, radar chart, and dimension breakdown |
+| 🌐 **Hero Orb** | Atmospheric animated background orb for visual depth |
+
+The app also features:
+- 🌍 **Full i18n** — English (default) + Portuguese, with AI responses respecting the selected language
+- 📱 **Responsive design** — Desktop 2-column grid for Strengths/Weaknesses, mobile-first everywhere
+- 📋 **Copy & Export** — Copy analysis to clipboard or download as `.md`
+- 🕐 **Analysis timer** — Shows how long the AI took
+- 📜 **History** — Recently analyzed repos saved locally
+- 🔄 **Smart fallback** — Graceful degradation when AI quota is exceeded
+
+**Tech Stack:** React 19 + Vite 7.3 + TailwindCSS v4 | Express 5 + ES Modules | Google Gemini AI with automatic model discovery and fallback chain | GitHub REST API
+
+<!-- 📸 COVER IMAGE: Place your main screenshot here (the full app showing an analysis result with all visualizations visible) -->
+
+## Demo
+
+**🔗 Live App:** [YOUR_VERCEL_URL_HERE]
+
+**📦 Repository:** [github.com/DARIO-engineer/repolens](https://github.com/DARIO-engineer/repolens)
+
+### Screenshots
+
+<!-- 📸 IMAGE 1: Homepage — the hero section with the URL input form and the animated HeroOrb background -->
+
+*The clean landing page with animated orb background*
+
+<!-- 📸 IMAGE 2: Analysis result — showing the full analysis cards (Architectural Summary, Stack, Strengths, Weaknesses side by side on desktop) -->
+
+*AI-generated analysis with responsive 2-column layout on desktop*
+
+<!-- 📸 IMAGE 3: Language Ring + Health Radar — the RepoStats section showing the donut chart and pentagon radar -->
+
+*Language DNA donut ring and Health Radar pentagon — pure SVG, zero libraries*
+
+<!-- 📸 IMAGE 4: Architecture Graph — the interactive node graph showing folder structure -->
+
+*Interactive Architecture Graph with radial layout — click the center node to trigger the collapse/expand breathe animation*
+
+<!-- 📸 IMAGE 5: Repo Personality — showing the archetype card, traits, radar chart, and dimension bars -->
+
+*Repo Personality — Myers-Briggs for repositories. Archetype, traits, radar chart, and dimension breakdown*
+
+<!-- 📸 IMAGE 6: Copilot Banner — the interactive CLI showcase section -->
+
+*Built with Copilot CLI showcase — real commands used during development*
+
+<!-- 📸 IMAGE 7: Language toggle — showing the 🇺🇸/🇧🇷 flag toggle and the app in Portuguese -->
+
+*Full i18n: one click to switch between English and Portuguese*
+
+## My Experience with GitHub Copilot CLI
+
+GitHub Copilot CLI wasn't just a helper in this project — it was my **pair programming partner from start to finish**. Every major feature, every tricky bug, every architectural decision went through `gh copilot` in the terminal.
+
+### How I Used It
+
+**1. Architecture & Refactoring**
+```bash
+$ gh copilot suggest "refactor express server into modular architecture with services and routes"
+```
+Copilot suggested creating `services/github.js`, `services/gemini.js`, and `routes/analyze.js` with clean separation of concerns. What would have taken me 30+ minutes of planning happened in seconds.
+
+**2. Critical Bug Resolution**
+```bash
+$ gh copilot explain "why is API_KEY undefined when using ES modules with dotenv"
+```
+This was a showstopper. ES module imports are hoisted, so `dotenv.config()` runs *after* the imports that need the env vars. Copilot immediately identified the issue and suggested `import "dotenv/config"` as the first import. Bug fixed in under 10 seconds.
+
+**3. Zero-Dependency Visualizations**
+```bash
+$ gh copilot suggest "create an SVG pentagon radar chart in React without any chart library"
+```
+The Health Radar visualization was born from this single command. Copilot generated polar coordinate calculations, `requestAnimationFrame` animation, and interactive hover — all in pure SVG. I then refined it, but the foundation was solid from the start.
+
+**4. AI Output Normalization**
+```bash
+$ gh copilot suggest "build a normalizeAnalysis function that transforms any AI output format into canonical sections"
+```
+Gemini's output format is unpredictable. Copilot generated a fuzzy-matching system with accent stripping, universal header regex, and variation mapping that makes the analysis 100% consistent regardless of how Gemini formats its response.
+
+**5. Performance Optimization**
+```bash
+$ gh copilot suggest "smart file tree filtering for GitHub repos to reduce prompt size"
+```
+Created an intelligent filter system with `CODE_EXTENSIONS`, `IMPORTANT_FILES`, and `IGNORED_PATTERNS` to keep the file tree compact. This reduced prompt size by ~60%, making analysis faster and cheaper.
+
+**6. Frontend Polish**
+```bash
+$ gh copilot suggest "animated SVG donut chart for language breakdown with GitHub official colors"
+```
+The Language Ring visualization came from this — cubic ease-out animation, hover glow effects, 35+ official GitHub language colors with HSL fallback.
+
+### Impact by the Numbers
+
+| Metric | Value |
+|---|---|
+| CLI commands used | 40+ |
+| Bugs resolved | 12 |
+| Features generated | 8 |
+| Estimated time saved | ~6 hours |
+
+### What I Learned
+
+Copilot CLI fundamentally changed how I approach development:
+
+- **Think in prompts, not code** — Instead of writing boilerplate, I describe what I want and refine the output
+- **Debug faster** — `gh copilot explain` is incredibly powerful for understanding *why* something fails, not just *what* failed
+- **Architectural confidence** — Using `gh copilot suggest` for structure decisions gives you well-reasoned patterns immediately
+- **Zero-dependency mindset** — Copilot helped me build complex SVG visualizations that would normally require Chart.js or D3 — keeping the bundle lean (96KB gzipped JS)
+
+The CLI workflow is addictive. No context switching to a browser, no copy-pasting from StackOverflow. Just terminal → prompt → solution → build. This is how I want to develop from now on.
+
+---
+
+*Built with ❤️ by [DARIO-engineer](https://github.com/DARIO-engineer) using GitHub Copilot CLI v0.0.410*
