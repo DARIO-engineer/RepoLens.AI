@@ -319,7 +319,7 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
   const [layoutSeed, setLayoutSeed] = useState(0); // triggers layout recalculation
 
   useEffect(() => {
-    if (!repoUrl || !visible) return;
+    if (!repoUrl || !visible || tree) return;
     setLoading(true);
     setError(false);
 
@@ -328,18 +328,21 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
     const [, owner, repo] = match;
 
     fetch(`https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}/git/trees/HEAD?recursive=1`)
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => r.ok ? r.json() : Promise.reject("API error"))
       .then((data) => {
         if (data?.tree) {
           const paths = data.tree
             .filter((item) => item.type === "blob" || item.type === "tree")
             .map((item) => item.path);
-          setTree(paths);
+          if (paths.length > 0) setTree(paths);
+          else setError(true);
+        } else {
+          setError(true);
         }
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [repoUrl, visible]);
+  }, [repoUrl, visible, tree]);
 
   // Animation
   useEffect(() => {

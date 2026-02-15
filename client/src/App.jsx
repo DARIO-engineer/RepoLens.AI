@@ -193,7 +193,7 @@ function App() {
         <RepoStats repoUrl={currentRepoUrl} visible={!!(analysis || loading)} />
 
         {/* Architecture Graph */}
-        <ArchitectureGraph repoUrl={currentRepoUrl} visible={!!analysis} />
+        <ArchitectureGraph repoUrl={currentRepoUrl} visible={!!(analysis || loading)} />
 
         {/* Repo Personality */}
         <RepoPersonality repoUrl={currentRepoUrl} visible={!!analysis} />
