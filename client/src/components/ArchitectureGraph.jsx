@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useI18n } from "../i18n";
 
 /**
@@ -317,21 +317,20 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapseProgress, setCollapseProgress] = useState(1); // 1 = expanded, 0 = collapsed
   const [layoutSeed, setLayoutSeed] = useState(0); // triggers layout recalculation
+  const fetchedUrlRef = useRef("");
 
-  // Reset tree when repo URL changes
   useEffect(() => {
+    if (!repoUrl || !visible) return;
+    if (fetchedUrlRef.current === repoUrl) return; // already fetched this URL
+
+    fetchedUrlRef.current = repoUrl;
     setTree(null);
     setError(false);
     setAnimProgress(0);
     setCollapsed(false);
     setCollapseProgress(1);
     setLayoutSeed(0);
-  }, [repoUrl]);
-
-  useEffect(() => {
-    if (!repoUrl || !visible || tree) return;
     setLoading(true);
-    setError(false);
 
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (!match) { setLoading(false); return; }
@@ -352,7 +351,7 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [repoUrl, visible, tree]);
+  }, [repoUrl, visible]);
 
   // Animation
   useEffect(() => {

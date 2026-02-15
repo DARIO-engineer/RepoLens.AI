@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useI18n } from "../i18n";
 import LanguageRing from "./LanguageRing";
 import HealthRadar from "./HealthRadar";
@@ -8,12 +8,17 @@ export default function RepoStats({ repoUrl, visible }) {
   const [loading, setLoading] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const { t } = useI18n();
+  const fetchedUrlRef = useRef("");
 
   useEffect(() => {
-    if (!repoUrl || !visible || repoData) return;
+    if (!repoUrl || !visible) return;
+    if (fetchedUrlRef.current === repoUrl) return;
+
+    fetchedUrlRef.current = repoUrl;
+    setRepoData(null);
+    setLoading(true);
 
     const fetchRepo = async () => {
-      setLoading(true);
       try {
         const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
         if (!match) return;
@@ -28,12 +33,7 @@ export default function RepoStats({ repoUrl, visible }) {
     };
 
     fetchRepo();
-  }, [repoUrl, visible, repoData]);
-
-  // Reset data when repo URL changes
-  useEffect(() => {
-    setRepoData(null);
-  }, [repoUrl]);
+  }, [repoUrl, visible]);
 
   if (!visible) return null;
 
