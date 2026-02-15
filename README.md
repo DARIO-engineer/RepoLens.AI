@@ -171,7 +171,17 @@ Contributions are welcome! Feel free to:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## �️ Roadmap
+
+- [ ] **Caching Layer** — In-memory cache for repeated repo analyses (reduce API calls & improve speed)
+- [ ] **Rate Limiting** — Middleware to protect API keys from abuse
+- [ ] **User Auth** — GitHub OAuth for saving reports and personal dashboards
+- [ ] **CI/CD Pipeline** — GitHub Actions for automated testing, linting, and deployment
+- [ ] **Alternative AI Models** — Integrate open-source LLMs as additional fallbacks
+- [ ] **Backend Tests** — Unit & integration tests for services and routes
+- [ ] **PWA Support** — Installable progressive web app with offline capabilities
+
+## �📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
