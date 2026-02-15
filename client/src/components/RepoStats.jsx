@@ -200,7 +200,7 @@ export default function RepoStats({ repoUrl, visible }) {
 
           {/* Health Radar */}
           <div className="p-6 flex flex-col items-center justify-center">
-            <h4 className="text-[10px] uppercase tracking-widest text-text-muted font-semibold mb-2">
+            <h4 className="text-[10px] uppercase tracking-widest text-text-muted font-semibold mb-4">
               {t("stats.healthRadar")}
             </h4>
             <HealthRadar repoData={repoData} />

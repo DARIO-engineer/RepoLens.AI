@@ -355,7 +355,10 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
           .then((r) => r.ok ? r.json() : Promise.reject("API error"))
           .then((fallback) => {
             if (fallback?.tree) {
-              const paths = fallback.tree.map((item) => item.path);
+              // For non-recursive, folders come as type "tree" — add a dummy child so buildTree creates them as folders
+              const paths = fallback.tree.map((item) =>
+                item.type === "tree" ? `${item.path}/_` : item.path
+              );
               if (paths.length > 0) { setTree(paths); return; }
             }
             setError(true);
