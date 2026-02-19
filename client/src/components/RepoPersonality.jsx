@@ -311,22 +311,9 @@ function PersonalityRadar({ dimensions, animProgress, color }) {
   );
 }
 
-export default function RepoPersonality({ repoUrl, visible }) {
+export default function RepoPersonality({ repoUrl, visible, repoData }) {
   const { t } = useI18n();
-  const [repoData, setRepoData] = useState(null);
   const [animProgress, setAnimProgress] = useState(0);
-
-  useEffect(() => {
-    if (!repoUrl || !visible) return;
-    const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-    if (!match) return;
-    const [, owner, repo] = match;
-
-    fetch(`https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data) setRepoData(data); })
-      .catch(() => {});
-  }, [repoUrl, visible]);
 
   const personality = useMemo(() => computePersonality(repoData), [repoData]);
 

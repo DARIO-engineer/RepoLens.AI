@@ -1,48 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useI18n } from "../i18n";
 import LanguageRing from "./LanguageRing";
 import HealthRadar from "./HealthRadar";
 
-export default function RepoStats({ repoUrl, visible }) {
-  const [repoData, setRepoData] = useState(null);
-  const [loading, setLoading] = useState(false);
+export default function RepoStats({ repoUrl, visible, repoData }) {
   const [descExpanded, setDescExpanded] = useState(false);
   const { t } = useI18n();
-  const fetchedUrlRef = useRef("");
-
-  useEffect(() => {
-    if (!repoUrl || !visible) return;
-    if (fetchedUrlRef.current === repoUrl) return;
-
-    fetchedUrlRef.current = repoUrl;
-    setRepoData(null);
-    setLoading(true);
-
-    const fetchRepo = async () => {
-      try {
-        const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-        if (!match) return;
-        const [, owner, repo] = match;
-        const res = await fetch(`https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}`);
-        if (res.ok) setRepoData(await res.json());
-      } catch {
-        // silently fail — stats are optional
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRepo();
-  }, [repoUrl, visible]);
 
   if (!visible) return null;
 
-  if (loading || !repoData) {
+  if (!repoData) {
     return (
       <div className="animate-fade-in max-w-3xl mx-auto mb-8">
         <div className="rounded-2xl border border-white/10 bg-surface-card/80 p-8 flex items-center justify-center">
           <div className="flex items-center gap-3 text-text-muted text-sm">
-            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary-light rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary-light rounded-full animate-spin" role="status" aria-label="Loading repository stats" />
             {t("stats.loading", "Loading stats...")}
           </div>
         </div>
