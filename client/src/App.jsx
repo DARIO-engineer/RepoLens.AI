@@ -4,6 +4,7 @@ import RepoStats from "./components/RepoStats";
 import AnalysisResult from "./components/AnalysisResult";
 import HeroOrb from "./components/HeroOrb";
 import { useI18n } from "./i18n";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import axios from "axios";
 
 // Lazy-loaded heavy components
@@ -332,6 +333,8 @@ function App() {
           </div>
         </div>
       </footer>
+
+      <SpeedInsights />
     </div>
   );
 }
