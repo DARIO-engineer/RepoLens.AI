@@ -159,8 +159,8 @@ export default function HealthRadar({ repoData }) {
           {/* Data area */}
           <polygon
             points={dataPolygon}
-            fill="rgba(99, 102, 241, 0.15)"
-            stroke="#818cf8"
+            fill="rgba(232, 145, 90, 0.12)"
+            stroke="#f5b87a"
             strokeWidth={2}
             strokeLinejoin="round"
             className="transition-all duration-300"
@@ -174,7 +174,7 @@ export default function HealthRadar({ repoData }) {
                 key={dim.key}
                 cx={p.x} cy={p.y}
                 r={isHov ? 5 : 3.5}
-                fill={isHov ? "#818cf8" : "#6366f1"}
+                fill={isHov ? "#f5b87a" : "#e8915a"}
                 stroke="#0b1120"
                 strokeWidth={2}
                 className="transition-all duration-200 cursor-pointer"
@@ -200,7 +200,7 @@ export default function HealthRadar({ repoData }) {
                   x={l.x} y={l.y + 8}
                   textAnchor="middle"
                   className="text-[11px] font-bold transition-colors duration-200"
-                  style={{ fill: isHov ? "#818cf8" : "#64748b" }}
+                  style={{ fill: isHov ? "#f5b87a" : "#64748b" }}
                 >
                   {Math.round(l.score * animProgress)}
                 </text>

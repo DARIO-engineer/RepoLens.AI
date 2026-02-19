@@ -1,52 +1,55 @@
 /**
  * HeroOrb — Animated CSS-only floating gradient orbs.
- * Creates a mesmerizing background effect for the hero section.
+ * Creates a mesmerizing warm atmospheric background for the hero section.
  * Zero dependencies, pure CSS animations with React.
  */
 export default function HeroOrb() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-      {/* Primary orb */}
+      {/* Primary warm orb */}
       <div
-        className="absolute rounded-full blur-[100px] opacity-[0.07]"
+        className="absolute rounded-full blur-[120px] opacity-[0.06]"
         style={{
-          width: "600px", height: "600px",
-          background: "radial-gradient(circle, #6366f1 0%, transparent 70%)",
-          top: "-200px", left: "50%", transform: "translateX(-50%)",
-          animation: "orbFloat 8s ease-in-out infinite",
+          width: "700px", height: "700px",
+          background: "radial-gradient(circle, #e8915a 0%, #d17a42 30%, transparent 70%)",
+          top: "-250px", left: "50%", transform: "translateX(-50%)",
+          animation: "orbFloat 10s ease-in-out infinite",
         }}
       />
-      {/* Accent orb */}
+      {/* Teal accent orb */}
       <div
-        className="absolute rounded-full blur-[80px] opacity-[0.05]"
+        className="absolute rounded-full blur-[90px] opacity-[0.045]"
         style={{
-          width: "400px", height: "400px",
-          background: "radial-gradient(circle, #22d3ee 0%, transparent 70%)",
-          bottom: "-100px", right: "-100px",
-          animation: "orbFloat 10s ease-in-out infinite reverse",
+          width: "450px", height: "450px",
+          background: "radial-gradient(circle, #2dd4bf 0%, transparent 70%)",
+          bottom: "-120px", right: "-80px",
+          animation: "orbFloat 12s ease-in-out infinite reverse",
         }}
       />
-      {/* Small green orb */}
+      {/* Soft gold orb */}
       <div
-        className="absolute rounded-full blur-[60px] opacity-[0.04]"
+        className="absolute rounded-full blur-[70px] opacity-[0.035]"
         style={{
-          width: "300px", height: "300px",
-          background: "radial-gradient(circle, #34d399 0%, transparent 70%)",
-          bottom: "50px", left: "-50px",
-          animation: "orbFloat 12s ease-in-out infinite 2s",
+          width: "350px", height: "350px",
+          background: "radial-gradient(circle, #f5b87a 0%, transparent 70%)",
+          bottom: "80px", left: "-60px",
+          animation: "orbFloat 14s ease-in-out infinite 3s",
         }}
       />
-      {/* Floating dots grid */}
-      <div className="absolute inset-0" style={{ opacity: 0.3 }}>
-        {Array.from({ length: 20 }).map((_, i) => (
+      {/* Floating particles — warm-tinted star field */}
+      <div className="absolute inset-0" style={{ opacity: 0.25 }}>
+        {Array.from({ length: 24 }).map((_, i) => (
           <div
             key={i}
-            className="absolute w-0.5 h-0.5 rounded-full bg-white"
+            className="absolute rounded-full"
             style={{
+              width: `${1 + (i % 3) * 0.5}px`,
+              height: `${1 + (i % 3) * 0.5}px`,
+              background: i % 3 === 0 ? '#f5b87a' : i % 3 === 1 ? '#2dd4bf' : '#e2e8f0',
               left: `${(i * 17 + 10) % 100}%`,
               top: `${(i * 23 + 5) % 100}%`,
-              opacity: 0.1 + (i % 4) * 0.05,
-              animation: `dotPulse ${3 + (i % 3)}s ease-in-out infinite ${i * 0.3}s`,
+              opacity: 0.08 + (i % 4) * 0.04,
+              animation: `dotPulse ${3 + (i % 4)}s ease-in-out infinite ${i * 0.4}s`,
             }}
           />
         ))}

@@ -15,29 +15,33 @@ export default function RepoForm({ onAnalyze, loading }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-2xl mx-auto"
+      className="max-w-2xl mx-auto animate-fade-in"
+      style={{ animationDelay: '300ms' }}
     >
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
+      <div className="relative group">
+        {/* Outer glow on focus */}
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-accent/10 to-primary/20 rounded-2xl opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-700 pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row gap-3 p-2 rounded-2xl bg-surface-light/80 border border-white/[0.08] backdrop-blur-sm glow-ring transition-all duration-300">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-text-muted/50">
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder={t("form.placeholder")}
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              disabled={loading}
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-transparent text-text placeholder-text-muted/35 focus:outline-none transition-all disabled:opacity-50 text-sm font-medium"
+            />
           </div>
-          <input
-            type="text"
-            placeholder={t("form.placeholder")}
-            value={repoUrl}
-            onChange={(e) => setRepoUrl(e.target.value)}
-            disabled={loading}
-            className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-surface-light border border-white/10 text-text placeholder-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading || !repoUrl.trim()}
-          className="px-8 py-3.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] cursor-pointer"
-        >
+          <button
+            type="submit"
+            disabled={loading || !repoUrl.trim()}
+            className="px-8 py-3.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.97] cursor-pointer ring-1 ring-white/10"
+          >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -55,9 +59,10 @@ export default function RepoForm({ onAnalyze, loading }) {
             </span>
           )}
         </button>
+        </div>
       </div>
       {repoUrl.trim() && !isValidUrl && (
-        <p className="text-warning/80 text-xs mt-2 ml-1">
+        <p className="text-warning/80 text-xs mt-3 ml-3">
           {t("form.validation")}
         </p>
       )}
