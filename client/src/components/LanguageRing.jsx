@@ -73,13 +73,12 @@ export default function LanguageRing({ repoUrl }) {
   const circumference = 2 * Math.PI * r;
 
   // Build arcs
-  let accumulated = 0;
-  const arcs = topLangs.map(([lang, bytes], i) => {
+  const arcs = topLangs.reduce((acc, [lang, bytes], i) => {
     const pct = bytes / total;
-    const offset = accumulated;
-    accumulated += pct;
-    return { lang, bytes, pct, offset, color: getColor(lang, i) };
-  });
+    const offset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].pct : 0;
+    acc.push({ lang, bytes, pct, offset, color: getColor(lang, i) });
+    return acc;
+  }, []);
 
   const primaryLang = entries[0]?.[0] || "N/A";
   const primaryPct = ((entries[0]?.[1] || 0) / total * 100).toFixed(0);
@@ -92,7 +91,7 @@ export default function LanguageRing({ repoUrl }) {
           {/* Background ring */}
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
           {/* Language arcs */}
-          {arcs.map((arc, i) => {
+          {arcs.map((arc) => {
             const dashLen = circumference * arc.pct * animProgress;
             const dashOffset = -circumference * arc.offset * animProgress;
             const isHovered = hovered === arc.lang;

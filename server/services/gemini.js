@@ -11,6 +11,11 @@ export class GeminiService {
             "gemini-1.5-flash",
             "gemini-1.5-pro",
         ];
+        this.http = axios.create({
+            timeout: Number(process.env.GEMINI_TIMEOUT_MS) || 25000,
+            maxContentLength: 2 * 1024 * 1024,
+            maxBodyLength: 2 * 1024 * 1024,
+        });
     }
 
     validateApiKey() {
@@ -28,7 +33,7 @@ export class GeminiService {
         for (const apiVersion of this.apiVersions) {
             try {
                 const listUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models?key=${this.apiKey}`;
-                const listResponse = await axios.get(listUrl);
+                const listResponse = await this.http.get(listUrl);
                 const models = (listResponse.data?.models || [])
                     .filter(
                         (m) =>
@@ -288,7 +293,7 @@ CRITICAL RULES:
                         };
                     }
 
-                    const response = await axios.post(geminiUrl, requestBody);
+                    const response = await this.http.post(geminiUrl, requestBody);
 
                     const analysis = response.data?.candidates?.[0]?.content?.parts
                         ?.map((part) => part.text || "")
@@ -333,6 +338,7 @@ CRITICAL RULES:
                         return normalized;
                     }
                 } catch (err) {
+                    err.aiProvider = "gemini";
                     lastError = err;
                     const status = err.response?.status;
                     const code = err.response?.data?.error?.code;

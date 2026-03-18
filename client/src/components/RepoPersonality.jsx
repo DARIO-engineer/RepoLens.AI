@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useI18n } from "../i18n";
+import { useI18n } from "../useI18n";
 
 /**
  * RepoPersonality — Generates a rich "personality card" for a GitHub repository
@@ -311,7 +311,7 @@ function PersonalityRadar({ dimensions, animProgress, color }) {
   );
 }
 
-export default function RepoPersonality({ repoUrl, visible, repoData }) {
+export default function RepoPersonality({ visible, repoData }) {
   const { t } = useI18n();
   const [animProgress, setAnimProgress] = useState(0);
 

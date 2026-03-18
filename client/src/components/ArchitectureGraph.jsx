@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useI18n } from "../i18n";
+import { useI18n } from "../useI18n";
 
 /**
  * ArchitectureGraph — Interactive SVG node graph that visualizes the project's
@@ -296,24 +296,12 @@ function computeLayout(nodes, edges, width, height, seed = 0) {
   return positions;
 }
 
-function buildParentMap(edges, positions) {
-  const parentPos = {};
-  for (const edge of edges) {
-    const fromPos = positions[edge.from];
-    if (fromPos) {
-      parentPos[edge.to] = { x: fromPos.x, y: fromPos.y };
-    }
-  }
-  return parentPos;
-}
-
 export default function ArchitectureGraph({ repoUrl, visible }) {
   const { t } = useI18n();
   const [tree, setTree] = useState(null);
   const [loading, setLoading] = useState(false);
   const [animProgress, setAnimProgress] = useState(0);
   const [hoveredNode, setHoveredNode] = useState(null);
-  const [error, setError] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [collapseProgress, setCollapseProgress] = useState(1); // 1 = expanded, 0 = collapsed
   const [layoutSeed, setLayoutSeed] = useState(0); // triggers layout recalculation
@@ -324,16 +312,10 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
     if (fetchedUrlRef.current === repoUrl) return; // already fetched this URL
 
     fetchedUrlRef.current = repoUrl;
-    setTree(null);
-    setError(false);
-    setAnimProgress(0);
-    setCollapsed(false);
-    setCollapseProgress(1);
-    setLayoutSeed(0);
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
 
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-    if (!match) { setLoading(false); return; }
+    if (!match) return;
     const [, owner, repo] = match;
     const base = `https://api.github.com/repos/${owner}/${repo.replace(/\.git$/, "")}`;
 
@@ -348,7 +330,14 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
           const paths = data.tree
             .filter((item) => item.type === "blob" || item.type === "tree")
             .map((item) => item.path);
-          if (paths.length > 0) { setTree(paths); return; }
+          if (paths.length > 0) {
+            setAnimProgress(0);
+            setCollapsed(false);
+            setCollapseProgress(1);
+            setLayoutSeed(0);
+            setTree(paths);
+            return;
+          }
         }
         // Fallback: non-recursive (top-level only) for huge repos
         return fetch(`${base}/git/trees/HEAD`)
@@ -359,12 +348,18 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
               const paths = fallback.tree.map((item) =>
                 item.type === "tree" ? `${item.path}/_` : item.path
               );
-              if (paths.length > 0) { setTree(paths); return; }
+              if (paths.length > 0) {
+                setAnimProgress(0);
+                setCollapsed(false);
+                setCollapseProgress(1);
+                setLayoutSeed(0);
+                setTree(paths);
+                return;
+              }
             }
-            setError(true);
           });
       })
-      .catch(() => setError(true))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [repoUrl, visible]);
 
@@ -425,13 +420,12 @@ export default function ArchitectureGraph({ repoUrl, visible }) {
   const WIDTH = 520;
   const HEIGHT = 420;
 
-  const { graphNodes, graphEdges, positions, parentMap } = useMemo(() => {
-    if (!tree) return { graphNodes: [], graphEdges: [], positions: {}, parentMap: {} };
+  const { graphNodes, graphEdges, positions } = useMemo(() => {
+    if (!tree) return { graphNodes: [], graphEdges: [], positions: {} };
     const treeObj = buildTree(tree);
     const { nodes, edges } = flattenTree(treeObj, 24);
     const pos = computeLayout(nodes, edges, WIDTH, HEIGHT, layoutSeed);
-    const pMap = buildParentMap(edges, pos);
-    return { graphNodes: nodes, graphEdges: edges, positions: pos, parentMap: pMap };
+    return { graphNodes: nodes, graphEdges: edges, positions: pos };
   }, [tree, layoutSeed]);
 
   if (!visible) return null;

@@ -3,7 +3,7 @@ import RepoForm from "./components/RepoForm";
 import RepoStats from "./components/RepoStats";
 import AnalysisResult from "./components/AnalysisResult";
 import HeroOrb from "./components/HeroOrb";
-import { useI18n } from "./i18n";
+import { useI18n } from "./useI18n";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import axios from "axios";
 
@@ -13,6 +13,7 @@ const RepoPersonality = lazy(() => import("./components/RepoPersonality"));
 const CopilotBanner = lazy(() => import("./components/CopilotBanner"));
 
 const HISTORY_KEY = "repolens-history";
+const AI_OUTAGE_KEY = "repolens-ai-outage";
 const MAX_HISTORY = 10;
 
 function loadHistory() {
@@ -27,6 +28,29 @@ function saveToHistory(entry) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
 }
 
+function loadServiceUnavailable() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(AI_OUTAGE_KEY) || "null");
+    if (!stored?.until) return null;
+    if (stored.until <= Date.now()) {
+      localStorage.removeItem(AI_OUTAGE_KEY);
+      return null;
+    }
+    return stored;
+  } catch {
+    return null;
+  }
+}
+
+function persistServiceUnavailable(state) {
+  if (state?.until && state.until > Date.now()) {
+    localStorage.setItem(AI_OUTAGE_KEY, JSON.stringify(state));
+    return;
+  }
+
+  localStorage.removeItem(AI_OUTAGE_KEY);
+}
+
 function App() {
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,13 +60,59 @@ function App() {
   const [history, setHistory] = useState(loadHistory);
   const [analysisLang, setAnalysisLang] = useState("");
   const [sharedRepoData, setSharedRepoData] = useState(null);
-  const resultsRef = useRef(null);
+  const [serviceUnavailable, setServiceUnavailable] = useState(loadServiceUnavailable);
   const fetchedRepoRef = useRef("");
   const { t, lang, toggleLang } = useI18n();
 
   const langMismatch = analysis && analysisLang && lang !== analysisLang;
+  const serviceDisabled = Boolean(serviceUnavailable?.until && serviceUnavailable.until > Date.now());
 
   const repoName = currentRepoUrl.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] || "";
+  const heroStats = [
+    { value: "6", label: lang === "pt" ? "camadas de leitura" : "analysis layers" },
+    { value: "<10s", label: lang === "pt" ? "tempo alvo" : "target turnaround" },
+    { value: "SVG", label: lang === "pt" ? "visuais nativos" : "native visuals" },
+  ];
+  const heroSignals = [
+    lang === "pt" ? "arquitetura" : "architecture",
+    lang === "pt" ? "stack" : "stack",
+    lang === "pt" ? "saúde do repo" : "repo health",
+  ];
+
+  useEffect(() => {
+    let active = true;
+
+    const syncServiceStatus = async () => {
+      try {
+        const res = await axios.get("/api/status", {
+          params: { lang },
+          validateStatus: (status) => status === 200 || status === 503,
+        });
+
+        if (!active) return;
+
+        const outage = res.data?.serviceUnavailable || null;
+        if (res.status === 503 && outage) {
+          setServiceUnavailable(outage);
+          persistServiceUnavailable(outage);
+          return;
+        }
+
+        setServiceUnavailable(null);
+        persistServiceUnavailable(null);
+      } catch {
+        // Keep last known state if status check fails.
+      }
+    };
+
+    syncServiceStatus();
+    const interval = window.setInterval(syncServiceStatus, serviceDisabled ? 15000 : 60000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [lang, serviceDisabled]);
 
   // Shared GitHub API fetch — feeds both RepoStats and RepoPersonality
   useEffect(() => {
@@ -61,6 +131,8 @@ function App() {
   }, [currentRepoUrl]);
 
   const handleAnalyze = async (repoUrl) => {
+    if (serviceDisabled) return;
+
     setLoading(true);
     setAnalysis("");
     setError("");
@@ -75,6 +147,8 @@ function App() {
       setDuration(elapsed);
       setAnalysis(res.data.analysis);
       setAnalysisLang(lang);
+      setServiceUnavailable(null);
+      persistServiceUnavailable(null);
 
       // Save to history
       const name = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] || repoUrl;
@@ -88,6 +162,15 @@ function App() {
     } catch (err) {
       setDuration(Date.now() - start);
       const backendError = err.response?.data;
+
+      if (backendError?.code === "AI_TEMPORARILY_UNAVAILABLE") {
+        const outage = backendError?.serviceUnavailable || null;
+        setServiceUnavailable(outage);
+        persistServiceUnavailable(outage);
+        setError([backendError.error, backendError.message, backendError.hint].filter(Boolean).join("\n"));
+        return;
+      }
+
       let message = backendError?.error || err.message || "Error analyzing repository.";
       if (typeof message === "object") message = JSON.stringify(message);
       let details = backendError?.details || "";
@@ -100,6 +183,7 @@ function App() {
   };
 
   const handleHistoryClick = (url) => {
+    if (serviceDisabled) return;
     handleAnalyze(url);
   };
 
@@ -117,7 +201,7 @@ function App() {
 
       {/* Header */}
       <header className="border-b border-white/[0.06] glass sticky top-0 z-50" role="banner">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/20 ring-1 ring-white/10">
@@ -180,37 +264,151 @@ function App() {
 
       {/* Hero Section */}
       <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6" role="main">
-        <section className="py-16 sm:py-24 text-center relative">
+        <section className="py-12 sm:py-18 lg:py-22 relative">
           <HeroOrb />
+          <div className="accent-orbit top-14 left-[10%] w-36 h-36 bg-primary/18" />
+          <div className="accent-orbit right-[6%] top-40 w-44 h-44 bg-accent/12" />
 
-          {/* Animated badge */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-primary/[0.08] border border-primary/[0.15] text-primary-light text-xs font-medium mb-8 backdrop-blur-sm animate-fade-in">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-            </span>
-            {t("header.badge")}
+          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 xl:gap-14 items-start">
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-primary/[0.08] border border-primary/[0.15] text-primary-light text-xs font-medium mb-8 backdrop-blur-sm animate-fade-in">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                </span>
+                {t("header.badge")}
+              </div>
+
+              <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted/70 mb-5 eyebrow-line animate-fade-in">
+                {lang === "pt" ? "Inteligência de repositórios em linguagem humana" : "Repository intelligence in human language"}
+              </p>
+              <h2 className="font-display text-[2.8rem] sm:text-[4.6rem] lg:text-[5.6rem] font-semibold text-text leading-[0.95] mb-6 tracking-[-0.03em] animate-fade-in" style={{ animationDelay: '100ms' }}>
+                {t("hero.title1")}
+                <br />
+                <span className="bg-gradient-to-r from-primary-light via-[#ffe2c6] to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
+                  {t("hero.title2")}
+                </span>
+              </h2>
+              <p className="text-text-muted max-w-2xl mb-10 text-base sm:text-lg leading-relaxed animate-fade-in" style={{ animationDelay: '200ms' }}>
+                {t("hero.desc")}
+              </p>
+
+              <div className="flex flex-wrap gap-3 mb-10 animate-fade-in" style={{ animationDelay: '260ms' }}>
+                {heroSignals.map((signal) => (
+                  <span key={signal} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full panel-metal text-xs uppercase tracking-[0.2em] text-text-muted/85">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary-light" />
+                    {signal}
+                  </span>
+                ))}
+              </div>
+
+              {serviceDisabled && (
+            <div role="status" aria-live="polite" className="animate-fade-in max-w-2xl mb-5 p-4 rounded-[1.6rem] bg-warning/[0.08] border border-warning/15 text-left backdrop-blur-sm">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 shrink-0 mt-0.5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4m0 4h.01M4.93 19h14.14c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.198 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-text">{t("service.title")}</p>
+                  <p className="text-sm text-text-muted mt-1">
+                    {t("service.description")}
+                  </p>
+                  <p className="text-xs text-text-muted/75 mt-2">
+                    {serviceUnavailable?.placeholder || t("service.placeholder")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+              <RepoForm
+                onAnalyze={handleAnalyze}
+                loading={loading}
+                disabled={serviceDisabled}
+                disabledPlaceholder={serviceUnavailable?.placeholder || t("service.placeholder")}
+                disabledReason={t("service.description")}
+              />
+            </div>
+
+            <div className="relative animate-fade-in-scale" style={{ animationDelay: '220ms' }}>
+              <div className="hero-card rounded-[2rem] p-6 sm:p-7 editorial-grid overflow-hidden">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-text-muted/60 mb-2">
+                      {lang === "pt" ? "Sala de controlo" : "control room"}
+                    </p>
+                    <h3 className="font-display text-2xl sm:text-3xl text-text">
+                      {lang === "pt" ? "Leituras rápidas com aura de relatório premium" : "Fast reads with premium-report energy"}
+                    </h3>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/20 border border-white/8 text-[10px] uppercase tracking-[0.26em] text-accent">
+                    live
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {heroStats.map((item) => (
+                    <div key={item.label} className="rounded-[1.3rem] bg-black/20 border border-white/8 px-4 py-4">
+                      <p className="text-xl sm:text-2xl font-bold text-text mb-1">{item.value}</p>
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted/72">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-[1.5rem] bg-black/25 border border-white/8 p-4 sm:p-5 mb-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] uppercase tracking-[0.3em] text-text-muted/65">
+                      {lang === "pt" ? "Painel de análise" : "analysis panel"}
+                    </span>
+                    <span className="text-[10px] px-2 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-light uppercase tracking-[0.18em]">
+                      {lang === "pt" ? "profundo" : "deep"}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      lang === "pt" ? "Resumo arquitetural com contexto" : "Architectural summary with context",
+                      lang === "pt" ? "Stack lida como mapa de decisão" : "Stack framed as a decision map",
+                      lang === "pt" ? "Sinais fortes, fracos e próximas ações" : "Strengths, weaknesses and next actions",
+                    ].map((line, index) => (
+                      <div key={line} className="flex items-center gap-3">
+                        <span className={`w-2 h-2 rounded-full ${index === 0 ? "bg-primary-light" : index === 1 ? "bg-accent" : "bg-accent-green"}`} />
+                        <span className="text-sm text-text-muted">{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="rounded-[1.4rem] bg-white/[0.03] border border-white/8 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.26em] text-text-muted/65 mb-2">
+                      {lang === "pt" ? "Experiência" : "experience"}
+                    </p>
+                    <p className="text-sm text-text-muted leading-relaxed">
+                      {lang === "pt"
+                        ? "Uma composição mais editorial, com contraste alto, profundidade e leitura mais imediata."
+                        : "A more editorial composition with stronger contrast, depth and faster scanability."}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] bg-white/[0.03] border border-white/8 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.26em] text-text-muted/65 mb-2">
+                      {lang === "pt" ? "Assinatura visual" : "visual signature"}
+                    </p>
+                    <p className="text-sm text-text-muted leading-relaxed">
+                      {lang === "pt"
+                        ? "Bronze quente, ciano oxidado, vidro escuro e tipografia de revista técnica."
+                        : "Warm bronze, oxidized cyan, dark glass and technical-magazine typography."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Massive headline */}
-          <h2 className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold text-text leading-[1.05] mb-6 tracking-tight animate-fade-in" style={{ animationDelay: '100ms' }}>
-            {t("hero.title1")}
-            <br />
-            <span className="bg-gradient-to-r from-primary via-primary-light to-accent bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-              {t("hero.title2")}
-            </span>
-          </h2>
-          <p className="text-text-muted max-w-2xl mx-auto mb-12 text-base sm:text-lg leading-relaxed animate-fade-in" style={{ animationDelay: '200ms' }}>
-            {t("hero.desc")}
-          </p>
-
-          <RepoForm onAnalyze={handleAnalyze} loading={loading} />
 
           {/* Recent History */}
           {history.length > 0 && !loading && !analysis && (
-            <div className="animate-fade-in mt-10 max-w-2xl mx-auto" style={{ animationDelay: '400ms' }}>
+            <div className="animate-fade-in mt-12 max-w-4xl" style={{ animationDelay: '400ms' }}>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] text-text-muted/70 uppercase tracking-[0.2em] font-medium">{t("history.title")}</span>
+                <span className="text-[10px] text-text-muted/70 uppercase tracking-[0.26em] font-medium">{t("history.title")}</span>
                 <button
                   onClick={clearHistory}
                   className="text-[10px] text-text-muted/40 hover:text-danger transition-colors cursor-pointer"
@@ -218,12 +416,12 @@ function App() {
                   {t("history.clear")}
                 </button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {history.slice(0, 6).map((item) => (
                   <button
                     key={item.url}
                     onClick={() => handleHistoryClick(item.url)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-text-muted hover:text-text hover:border-primary/25 hover:bg-primary/[0.04] transition-all cursor-pointer group"
+                    className="flex items-center gap-2 px-4 py-3 rounded-[1.1rem] panel-metal text-xs text-text-muted hover:text-text hover:border-primary/25 hover:bg-primary/[0.04] transition-all cursor-pointer group"
                   >
                     <svg className="w-3.5 h-3.5 text-text-muted/40 group-hover:text-primary-light transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -238,7 +436,7 @@ function App() {
 
         {/* Error */}
         {error && (
-          <div role="alert" aria-live="assertive" className="animate-fade-in max-w-3xl mx-auto mb-8 p-4 rounded-xl bg-danger/[0.08] border border-danger/15 text-danger text-sm backdrop-blur-sm">
+          <div role="alert" aria-live="assertive" className="animate-fade-in max-w-3xl mx-auto mb-8 p-4 rounded-[1.5rem] bg-danger/[0.08] border border-danger/15 text-danger text-sm backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -297,7 +495,7 @@ function App() {
       <footer className="relative border-t border-white/[0.06] mt-24 overflow-hidden" role="contentinfo">
         <div className="absolute inset-0 bg-gradient-to-t from-primary/[0.02] to-transparent pointer-events-none" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-          <div className="flex flex-col items-center gap-5">
+          <div className="flex flex-col items-center gap-5 panel-metal rounded-[1.9rem] px-6 py-10">
             {/* Logo */}
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/15 ring-1 ring-white/10">

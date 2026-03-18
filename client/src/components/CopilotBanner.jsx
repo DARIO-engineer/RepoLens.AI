@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useI18n } from "../i18n";
+import { useI18n } from "../useI18n";
 
 /**
  * CopilotBanner — Interactive showcase of how GitHub Copilot CLI was used

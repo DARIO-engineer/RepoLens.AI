@@ -2,13 +2,19 @@ import axios from "axios";
 
 export class GitHubService {
     constructor() {
-        this.headers = {
+        this.baseHeaders = {
             Accept: "application/vnd.github+json",
             "User-Agent": "repolens-ai",
             ...(process.env.GITHUB_TOKEN?.trim()
                 ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN.trim()}` }
                 : {}),
         };
+        this.http = axios.create({
+            timeout: Number(process.env.GITHUB_TIMEOUT_MS) || 10000,
+            maxContentLength: 2 * 1024 * 1024,
+            maxBodyLength: 2 * 1024 * 1024,
+            headers: this.baseHeaders,
+        });
     }
 
     parseRepoUrl(repoUrl) {
@@ -16,41 +22,57 @@ export class GitHubService {
         try {
             parsedUrl = new URL(repoUrl);
         } catch {
-            throw new Error("URL de repositório inválida.");
+            const error = new Error("URL de repositório inválida.");
+            error.status = 400;
+            throw error;
+        }
+
+        const validHosts = new Set(["github.com", "www.github.com"]);
+        if (parsedUrl.protocol !== "https:" || !validHosts.has(parsedUrl.hostname.toLowerCase())) {
+            const error = new Error("Apenas URLs HTTPS públicas do GitHub são suportadas.");
+            error.status = 400;
+            throw error;
         }
 
         const pathParts = parsedUrl.pathname.replace(/^\/+|\/+$/g, "").split("/");
-        const [owner, repo] = pathParts;
+        const owner = pathParts[0];
+        const repo = pathParts[1]?.replace(/\.git$/i, "");
 
         if (!owner || !repo) {
-            throw new Error("URL de repositório inválida.");
+            const error = new Error("URL de repositório inválida.");
+            error.status = 400;
+            throw error;
+        }
+
+        if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+            const error = new Error("O repositório informado contém caracteres inválidos.");
+            error.status = 400;
+            throw error;
         }
 
         return { owner, repo };
     }
 
     async getRepositoryData(owner, repo) {
-        const response = await axios.get(
+        const response = await this.http.get(
             `https://api.github.com/repos/${owner}/${repo}`,
-            { headers: this.headers }
         );
         return response.data;
     }
 
     async getLanguages(owner, repo) {
-        const response = await axios.get(
+        const response = await this.http.get(
             `https://api.github.com/repos/${owner}/${repo}/languages`,
-            { headers: this.headers }
         );
         return response.data;
     }
 
     async getReadme(owner, repo) {
-        const response = await axios.get(
+        const response = await this.http.get(
             `https://api.github.com/repos/${owner}/${repo}/readme`,
             {
                 headers: {
-                    ...this.headers,
+                    ...this.baseHeaders,
                     Accept: "application/vnd.github.v3.raw",
                 },
             }
@@ -120,9 +142,8 @@ export class GitHubService {
         ]);
 
         try {
-            const response = await axios.get(
+            const response = await this.http.get(
                 `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
-                { headers: this.headers }
             );
 
             const items = (response.data?.tree || []).filter((item) => {

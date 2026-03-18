@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useI18n } from "../i18n";
+import { useI18n } from "../useI18n";
 
 function getSectionMeta(key, t) {
   const META = {
@@ -109,17 +109,15 @@ function parseSections(text) {
 
   // Split on any ## header (the server normalizes to this format)
   // Also handle ### and #### just in case, and bold **Section** headers
-  const headerRegex = /^(?:#{2,4}\s+|(?:\d+[\.\)]\s+)?(?:\*\*))(.+?)(?:\*\*)?\s*$/gm;
+  const headerRegex = /^(?:#{2,4}\s+|(?:\d+[.)]\s+)?(?:\*\*))(.+?)(?:\*\*)?\s*$/gm;
   const sections = [];
-  let lastIndex = 0;
-  let lastKey = null;
   let match;
 
   // Collect all header positions
   const headers = [];
   while ((match = headerRegex.exec(text)) !== null) {
     const rawTitle = match[1]
-      .replace(/^\d+[\.\)\-]\s*/, "")
+      .replace(/^\d+[.)-]\s*/, "")
       .replace(/\*\*/g, "")
       .replace(/[:：\-—]+$/, "")
       .trim();
@@ -420,13 +418,13 @@ export default function AnalysisResult({ analysis, loading, duration, repoName }
   const sections = parseSections(analysis);
 
   return (
-    <div id="analysis-results" className="max-w-3xl md:max-w-4xl mx-auto pb-12 space-y-4">
+    <div id="analysis-results" className="max-w-3xl md:max-w-5xl mx-auto pb-16 space-y-5">
       {/* Results header with actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-3 panel-metal rounded-[1.75rem] px-5 py-4">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent sm:hidden" />
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-medium uppercase tracking-widest whitespace-nowrap">{t("analysis.resultTitle")}</span>
+            <span className="text-xs text-text-muted font-medium uppercase tracking-[0.28em] whitespace-nowrap eyebrow-line pl-0 sm:pl-0">{t("analysis.resultTitle")}</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/15 text-accent-green border border-accent-green/20">
               {sections.length} {t("analysis.sections")}
             </span>
@@ -448,7 +446,7 @@ export default function AnalysisResult({ analysis, loading, duration, repoName }
       </div>
 
       {/* Responsive grid: PONTOS_FORTES + PONTOS_FRACOS side-by-side on desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {sections.map((section, index) => {
           const meta = getSectionMeta(section.key, t) || {
             label: section.key.replace(/_/g, " "),
@@ -468,14 +466,17 @@ export default function AnalysisResult({ analysis, loading, duration, repoName }
           return (
             <div
               key={index}
-              className={`animate-fade-in rounded-xl border ${meta.border} bg-gradient-to-br ${meta.gradient} backdrop-blur-sm p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 hover:border-white/15 hover:-translate-y-0.5 ${isPaired ? "" : "md:col-span-2"}`}
+              className={`animate-fade-in rounded-[1.6rem] border ${meta.border} bg-gradient-to-br ${meta.gradient} panel-metal backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-[0_28px_65px_-38px_rgba(0,0,0,0.95)] hover:border-white/15 hover:-translate-y-1 ${isPaired ? "" : "md:col-span-2"}`}
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-8 h-8 rounded-lg ${meta.iconBg} flex items-center justify-center shrink-0`}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className={`w-10 h-10 rounded-xl ${meta.iconBg} flex items-center justify-center shrink-0 ring-1 ring-white/8`}>
                   {meta.icon}
                 </div>
-                <h3 className="text-base font-semibold text-text">{meta.label}</h3>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.28em] text-text-muted/65 mb-1">{section.key.replace(/_/g, " ")}</p>
+                  <h3 className="text-lg font-semibold text-text">{meta.label}</h3>
+                </div>
               </div>
               {renderContent(section.content)}
             </div>

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useI18n } from "../i18n";
+import { useI18n } from "../useI18n";
 import LanguageRing from "./LanguageRing";
 import HealthRadar from "./HealthRadar";
 
-export default function RepoStats({ repoUrl, visible, repoData }) {
+export default function RepoStats({ visible, repoData }) {
   const [descExpanded, setDescExpanded] = useState(false);
+  const [currentTime] = useState(() => Date.now());
   const { t } = useI18n();
 
   if (!visible) return null;
@@ -25,7 +26,7 @@ export default function RepoStats({ repoUrl, visible, repoData }) {
   const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n));
 
   const daysSinceUpdate = repoData.pushed_at
-    ? Math.floor((Date.now() - new Date(repoData.pushed_at).getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.floor((currentTime - new Date(repoData.pushed_at).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
   const lastUpdateLabel = daysSinceUpdate === 0 ? t("stats.today") :
