@@ -95,12 +95,14 @@ Open [http://localhost:5173](http://localhost:5173)
 - [x] Gemini 2.0 Flash as default model
 - [x] API Usage Tracking (2 free daily requests)
 - [x] Personal API Key support (unlimited analyses)
+- [x] Backend Rate Limiting & Request Guarding
+- [x] Clean and Modular project structure
 - [ ] Gemini 2.5 Pro as default model when generally available
 - [ ] Caching layer for repeated analyses
 - [ ] GitHub OAuth for saved reports
 - [ ] Alternative AI models (open-source LLMs)
 - [ ] PWA support with offline mode
-- [ ] CI/CD with GitHub Actions
+- [ ] CI/CD with GitHub Actions (GitHub Actions)
 
 ## Contributing
 

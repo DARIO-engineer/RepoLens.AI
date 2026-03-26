@@ -38,7 +38,10 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
           
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/20">
-              <span className="text-3xl">🔑</span>
+              <svg className="w-8 h-8 text-primary-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
             </div>
             <h2 className="text-2xl font-display font-bold text-text mb-2">{t("apiKey.modal.title")}</h2>
             <p className="text-text-muted text-sm">

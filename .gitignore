@@ -1,14 +1,19 @@
 # Dependencies
 node_modules/
+client/node_modules/
+server/node_modules/
 
 # Build outputs
 dist/
 build/
+client/dist/
+server/dist/
 
 # Environment files
 .env
 .env.local
 .env.*.local
+server/.env
 
 # IDE
 .vscode/
@@ -27,6 +32,12 @@ npm-debug.log*
 # Cache
 .cache/
 .turbo/
+
+# Vercel
+.vercel
+
+# Testing
+coverage/
 
 # Temporary files
 *.bak
