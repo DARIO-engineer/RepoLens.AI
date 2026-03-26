@@ -7,11 +7,11 @@ import { useI18n } from "../useI18n";
  */
 
 const DIMENSION_KEYS = [
-  { key: "community", icon: "👥" },
-  { key: "activity", icon: "⚡" },
-  { key: "documentation", icon: "📄" },
-  { key: "popularity", icon: "⭐" },
-  { key: "maintenance", icon: "🔧" },
+  { key: "community" },
+  { key: "activity" },
+  { key: "documentation" },
+  { key: "popularity" },
+  { key: "maintenance" },
 ];
 
 function computeScores(repoData) {
@@ -191,10 +191,10 @@ export default function HealthRadar({ repoData }) {
                 <text
                   x={l.x} y={l.y - 6}
                   textAnchor="middle"
-                  className="text-[10px] fill-current transition-colors duration-200"
+                  className="text-[10px] fill-current transition-colors duration-200 uppercase font-bold tracking-tighter"
                   style={{ fill: isHov ? "#f1f5f9" : "#94a3b8" }}
                 >
-                  {l.icon} {l.label}
+                  {l.label}
                 </text>
                 <text
                   x={l.x} y={l.y + 8}
