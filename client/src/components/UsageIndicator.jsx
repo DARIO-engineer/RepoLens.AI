@@ -1,8 +1,10 @@
 import React from 'react';
 import { useUsageTracker } from '../hooks/useUsageTracker';
+import { useI18n } from '../useI18n';
 
 export function UsageIndicator() {
   const { hasUserKey, remainingRequests, hasReachedLimit } = useUsageTracker();
+  const { t } = useI18n();
 
   const baseClasses = "inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 shadow-lg";
   
@@ -10,7 +12,7 @@ export function UsageIndicator() {
     return (
       <div className={`${baseClasses} bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 text-primary-light`}>
         <span className="text-sm">🔑</span>
-        <span>Personal API Key</span>
+        <span>{t("apiKey.usage.userKey")}</span>
       </div>
     );
   }
@@ -24,8 +26,8 @@ export function UsageIndicator() {
       <span className="text-sm">⚡</span>
       <span>
         {hasReachedLimit 
-          ? 'Limit reached - Add your key' 
-          : `${remainingRequests} free remaining`
+          ? t("apiKey.usage.limitReached")
+          : `${remainingRequests} ${t("apiKey.usage.remaining")}`
         }
       </span>
     </div>
