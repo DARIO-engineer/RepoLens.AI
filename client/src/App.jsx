@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 import RepoForm from "./components/RepoForm";
 import RepoStats from "./components/RepoStats";
 import AnalysisResult from "./components/AnalysisResult";
@@ -6,6 +6,14 @@ import HeroOrb from "./components/HeroOrb";
 import { useI18n } from "./useI18n";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import axios from "axios";
+
+// API Key Management
+import { useUsageTracker } from "./hooks/useUsageTracker";
+import { useApiKeyManager } from "./hooks/useApiKeyManager";
+import { UsageIndicator } from "./components/UsageIndicator";
+import { ApiKeyModal } from "./components/ApiKeyModal";
+import { ApiKeySettings } from "./components/ApiKeySettings";
+import { analyzeRepository } from "./lib/geminiClient";
 
 // Lazy-loaded heavy components
 const ArchitectureGraph = lazy(() => import("./components/ArchitectureGraph"));
@@ -61,8 +69,10 @@ function App() {
   const [analysisLang, setAnalysisLang] = useState("");
   const [sharedRepoData, setSharedRepoData] = useState(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(loadServiceUnavailable);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const fetchedRepoRef = useRef("");
   const { t, lang, toggleLang } = useI18n();
+  const { canMakeRequest, incrementUsage, hasUserKey, setHasUserKey } = useUsageTracker();
 
   const langMismatch = analysis && analysisLang && lang !== analysisLang;
   const serviceDisabled = Boolean(serviceUnavailable?.until && serviceUnavailable.until > Date.now());
@@ -133,6 +143,12 @@ function App() {
   const handleAnalyze = async (repoUrl) => {
     if (serviceDisabled) return;
 
+    // Check if user can make request (free limit or has personal key)
+    if (!canMakeRequest) {
+      setShowApiKeyModal(true);
+      return;
+    }
+
     setLoading(true);
     setAnalysis("");
     setError("");
@@ -142,13 +158,18 @@ function App() {
     const start = Date.now();
 
     try {
-      const res = await axios.post("/api/analyze", { repoUrl, lang });
+      const result = await analyzeRepository(repoUrl, lang);
       const elapsed = Date.now() - start;
       setDuration(elapsed);
-      setAnalysis(res.data.analysis);
+      setAnalysis(result.analysis);
       setAnalysisLang(lang);
       setServiceUnavailable(null);
       persistServiceUnavailable(null);
+
+      // Increment usage ONLY if NOT using a personal key
+      if (!result.isUserKey) {
+        incrementUsage();
+      }
 
       // Save to history
       const name = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] || repoUrl;
@@ -161,7 +182,9 @@ function App() {
       }, 300);
     } catch (err) {
       setDuration(Date.now() - start);
-      const backendError = err.response?.data;
+      
+      // Handle Axios vs Fetch errors
+      const backendError = err.response?.data || (err.message && { error: err.message });
 
       if (backendError?.code === "AI_TEMPORARILY_UNAVAILABLE") {
         const outage = backendError?.serviceUnavailable || null;
@@ -222,6 +245,7 @@ function App() {
           </div>
 
           <nav className="ml-auto flex items-center gap-2" aria-label="Site navigation">
+            <UsageIndicator />
             {/* Language Toggle */}
             <button
               onClick={toggleLang}
@@ -320,6 +344,8 @@ function App() {
               </div>
             </div>
           )}
+
+              <ApiKeySettings />
 
               <RepoForm
                 onAnalyze={handleAnalyze}
@@ -532,6 +558,11 @@ function App() {
         </div>
       </footer>
 
+      <ApiKeyModal 
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        onSuccess={() => setHasUserKey(true)}
+      />
       <SpeedInsights />
     </div>
   );

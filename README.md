@@ -67,50 +67,34 @@ $ gh copilot suggest "create an SVG pentagon radar chart in React without any ch
 
 ## Installation
 
+### 1. Backend Setup
 ```bash
-# Clone
-git clone https://github.com/DARIO-engineer/RepoLens.AI.git
-cd RepoLens.AI
+cd server
+npm install
+# Create .env file with your Gemini API key
+echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
+# Optional: Specify a preferred model
+echo "GEMINI_MODEL=gemini-2.0-flash" >> .env
+node index.js
+```
 
-# Install
-cd client && npm install && cd ../server && npm install
-
-# Configure
-echo "GEMINI_API_KEY=your_key" > server/.env
-
-# Optional: use a specific Gemini model (e.g., gemini-2.5-pro)
-# echo "GEMINI_MODEL=gemini-2.5-pro" >> server/.env
-
-# Run (two terminals)
-cd server && node index.js
-cd client && npm run dev
+### 2. Frontend Setup
+```bash
+cd client
+npm install
+# The frontend automatically detects the backend on port 3000
+npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173)
 
-## Project Structure
-
-```
-client/src/
-├── components/
-│   ├── AnalysisResult.jsx     # AI analysis display
-│   ├── ArchitectureGraph.jsx  # Interactive file tree graph
-│   ├── HealthRadar.jsx        # Pentagon health chart
-│   ├── LanguageRing.jsx       # Language donut chart
-│   ├── RepoPersonality.jsx    # MBTI-style personality
-│   └── RepoStats.jsx          # Stats dashboard
-├── i18n.jsx                   # EN/PT-BR translations
-└── App.jsx
-
-server/
-├── routes/analyze.js          # POST /api/analyze
-└── services/
-    ├── gemini.js              # Gemini AI with model fallback
-    └── github.js              # GitHub API client
-```
+---
 
 ## Roadmap
 
+- [x] Gemini 2.0 Flash as default model
+- [x] API Usage Tracking (2 free daily requests)
+- [x] Personal API Key support (unlimited analyses)
 - [ ] Gemini 2.5 Pro as default model when generally available
 - [ ] Caching layer for repeated analyses
 - [ ] GitHub OAuth for saved reports
