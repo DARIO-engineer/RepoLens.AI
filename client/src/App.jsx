@@ -253,7 +253,7 @@ function App() {
               title={lang === "en" ? "Mudar para Português" : "Switch to English"}
               aria-label={lang === "en" ? "Switch to Portuguese" : "Mudar para Inglês"}
             >
-              <span className="text-base" aria-hidden="true">{lang === "en" ? "🇺🇸" : "🇧🇷"}</span>
+              <span className="text-[10px] font-bold" aria-hidden="true">{lang === "en" ? "EN" : "PT"}</span>
             </button>
             {/* LinkedIn — visible after 2026-02-16 15:10 BRT */}
             {Date.now() >= new Date("2026-02-16T15:10:00-03:00").getTime() && (
