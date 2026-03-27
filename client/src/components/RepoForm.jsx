@@ -11,7 +11,7 @@ export default function RepoForm({ onAnalyze, loading, disabled = false, disable
     if (repoUrl.trim()) onAnalyze(repoUrl.trim());
   };
 
-  const isValidUrl = repoUrl.trim().startsWith("https://github.com/");
+  const isValidUrl = repoUrl.trim().match(/^(?:https:\/\/github\.com\/)?([^/\s]+\/[^/\s]+?)(?:\.git|\/)?$/);
   const displayValue = disabled ? "" : repoUrl;
 
   return (
@@ -40,7 +40,7 @@ export default function RepoForm({ onAnalyze, loading, disabled = false, disable
               disabled={loading || disabled}
               aria-label={disabled ? disabledPlaceholder : t("form.placeholder")}
               autoComplete="url"
-              className="w-full pl-12 pr-5 py-4 rounded-[1.35rem] bg-black/10 text-text placeholder-text-muted/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all disabled:opacity-50 text-sm sm:text-[15px] font-semibold tracking-[0.01em]"
+              className="w-full min-h-[48px] pl-12 pr-5 py-3.5 sm:py-4 rounded-[1.35rem] bg-black/10 text-text placeholder-text-muted/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all disabled:opacity-50 text-base sm:text-[15px] font-semibold tracking-[0.01em]"
             />
           </div>
           <button

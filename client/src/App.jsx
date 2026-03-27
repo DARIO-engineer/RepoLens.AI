@@ -1,28 +1,30 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
 import RepoForm from "./components/RepoForm";
-import RepoStats from "./components/RepoStats";
-import AnalysisResult from "./components/AnalysisResult";
 import HeroOrb from "./components/HeroOrb";
 import { useI18n } from "./useI18n";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import axios from "axios";
 
 // API Key Management
 import { useUsageTracker } from "./hooks/useUsageTracker";
-import { useApiKeyManager } from "./hooks/useApiKeyManager";
-import { UsageIndicator } from "./components/UsageIndicator";
-import { ApiKeyModal } from "./components/ApiKeyModal";
-import { ApiKeySettings } from "./components/ApiKeySettings";
 import { analyzeRepository } from "./lib/geminiClient";
+import { checkRepoExists } from "./lib/githubClient";
 
 // Lazy-loaded heavy components
 const ArchitectureGraph = lazy(() => import("./components/ArchitectureGraph"));
 const RepoPersonality = lazy(() => import("./components/RepoPersonality"));
 const CopilotBanner = lazy(() => import("./components/CopilotBanner"));
+const AnalysisResult = lazy(() => import("./components/AnalysisResult"));
+const RepoStats = lazy(() => import("./components/RepoStats"));
+const ApiKeyModal = lazy(() => import("./components/ApiKeyModal"));
+const UsageIndicator = lazy(() => import("./components/UsageIndicator").then(m => ({ default: m.UsageIndicator })));
+const ApiKeySettings = lazy(() => import("./components/ApiKeySettings").then(m => ({ default: m.ApiKeySettings })));
 
 const HISTORY_KEY = "repolens-history";
 const AI_OUTAGE_KEY = "repolens-ai-outage";
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 5;
 
 function loadHistory() {
   try {
@@ -67,6 +69,7 @@ function App() {
   const [duration, setDuration] = useState(0);
   const [history, setHistory] = useState(loadHistory);
   const [analysisLang, setAnalysisLang] = useState("");
+  const [lastFromCache, setLastFromCache] = useState(false);
   const [sharedRepoData, setSharedRepoData] = useState(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(loadServiceUnavailable);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
@@ -140,7 +143,7 @@ function App() {
       .catch(() => {});
   }, [currentRepoUrl]);
 
-  const handleAnalyze = async (repoUrl) => {
+  const handleAnalyze = async (repoUrl, options = {}) => {
     if (serviceDisabled) return;
 
     // Check if user can make request (free limit or has personal key)
@@ -152,13 +155,30 @@ function App() {
     setLoading(true);
     setAnalysis("");
     setError("");
-    setCurrentRepoUrl(repoUrl);
     setDuration(0);
+    setLastFromCache(false);
 
     const start = Date.now();
 
     try {
-      const result = await analyzeRepository(repoUrl, lang);
+      const validation = await checkRepoExists(repoUrl);
+      if (!validation.exists) {
+        if (validation.error === "INVALID_FORMAT") {
+          throw new Error(t("repo.validation.invalidFormat"));
+        }
+        if (validation.error === "NOT_FOUND") {
+          throw new Error(t("repo.validation.notFound"));
+        }
+        if (validation.error === "FORBIDDEN") {
+          throw new Error(t("repo.validation.forbidden"));
+        }
+        throw new Error(t("repo.validation.generic"));
+      }
+
+      const normalizedRepoUrl = validation.repoUrl;
+      setCurrentRepoUrl(normalizedRepoUrl);
+
+      const result = await analyzeRepository(normalizedRepoUrl, lang, options);
       const elapsed = Date.now() - start;
       setDuration(elapsed);
       setAnalysis(result.analysis);
@@ -166,14 +186,22 @@ function App() {
       setServiceUnavailable(null);
       persistServiceUnavailable(null);
 
+      // Show cache indication if data came from cache
+      if (result.fromCache) {
+        toast.info(t("analysis.fromCache", "Analysis loaded from cache."));
+      }
+      setLastFromCache(Boolean(result.fromCache));
+
       // Increment usage ONLY if NOT using a personal key
-      if (!result.isUserKey) {
+      if (!result.isUserKey && !result.fromCache) {
         incrementUsage();
       }
 
-      // Save to history
-      const name = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] || repoUrl;
-      saveToHistory({ url: repoUrl, name, date: new Date().toISOString() });
+      saveToHistory({
+        url: normalizedRepoUrl,
+        name: validation.repoPath,
+        date: new Date().toISOString()
+      });
       setHistory(loadHistory());
 
       // Scroll to results after a brief delay
@@ -245,7 +273,9 @@ function App() {
           </div>
 
           <nav className="ml-auto flex items-center gap-2" aria-label="Site navigation">
-            <UsageIndicator />
+            <Suspense fallback={<div className="w-24 h-8 bg-white/5 rounded-full animate-pulse" />}>
+              <UsageIndicator />
+            </Suspense>
             {/* Language Toggle */}
             <button
               onClick={toggleLang}
@@ -345,7 +375,35 @@ function App() {
             </div>
           )}
 
-              <ApiKeySettings />
+              <Suspense fallback={null}>
+                <ApiKeySettings />
+              </Suspense>
+              
+              {!hasUserKey && (
+                <div className="animate-fade-in max-w-3xl mx-auto mb-8 p-6 rounded-[2rem] bg-primary/[0.04] border border-primary/10 backdrop-blur-sm text-center">
+                   <p className="text-sm text-text-muted leading-relaxed">
+                     ⚡ {t("apiKey.banner.info")}
+                     <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="ml-2 text-primary-light hover:text-primary underline font-medium transition-all">
+                        {t("apiKey.banner.link")} →
+                     </a>
+                   </p>
+                </div>
+              )}
+
+              <div className="flex justify-center mb-6">
+                <button
+                  onClick={() => setShowApiKeyModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs font-semibold text-text-muted hover:text-text hover:border-primary/30 transition-all cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  {hasUserKey
+                    ? t("apiKey.cta.update")
+                    : t("apiKey.cta.use")}
+                </button>
+              </div>
 
               <RepoForm
                 onAnalyze={handleAnalyze}
@@ -443,7 +501,7 @@ function App() {
                 </button>
               </div>
               <div className="flex flex-wrap gap-3">
-                {history.slice(0, 6).map((item) => (
+                {history.slice(0, 5).map((item) => (
                   <button
                     key={item.url}
                     onClick={() => handleHistoryClick(item.url)}
@@ -476,7 +534,9 @@ function App() {
         )}
 
         {/* Repo Stats */}
-        <RepoStats repoUrl={currentRepoUrl} visible={!!(analysis || loading)} repoData={sharedRepoData} />
+        <Suspense fallback={<div className="skeleton h-32 max-w-3xl mx-auto mb-8 rounded-2xl" />}>
+          <RepoStats repoUrl={currentRepoUrl} visible={!!(analysis || loading)} repoData={sharedRepoData} />
+        </Suspense>
 
         {/* Architecture Graph */}
         <Suspense fallback={<div className="skeleton h-64 max-w-3xl mx-auto mb-8 rounded-2xl" />}>
@@ -499,7 +559,7 @@ function App() {
                 {t("analysis.langMismatch")}
               </span>
               <button
-                onClick={() => handleAnalyze(currentRepoUrl)}
+                onClick={() => handleAnalyze(currentRepoUrl, { forceRefresh: true })}
                 className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 border border-primary/25 text-primary-light hover:bg-primary/25 transition-all cursor-pointer"
               >
                 {t("analysis.reAnalyze")}
@@ -508,8 +568,27 @@ function App() {
           </div>
         )}
 
+        {analysis && lastFromCache && (
+          <div className="max-w-4xl lg:max-w-5xl mx-auto mb-4 animate-fade-in">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/[0.08] border border-primary/20 text-sm backdrop-blur-sm">
+              <span className="text-xs text-primary-light">⚡ {t("analysis.cache.badge")}</span>
+              <span className="text-text-muted text-xs flex-1">
+                {t("analysis.cache.desc")}
+              </span>
+              <button
+                onClick={() => handleAnalyze(currentRepoUrl, { forceRefresh: true })}
+                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 border border-primary/25 text-primary-light hover:bg-primary/25 transition-all cursor-pointer"
+              >
+                {t("analysis.cache.refresh")}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Results */}
-        <AnalysisResult analysis={analysis} loading={loading} duration={duration} repoName={repoName} />
+        <Suspense fallback={<div className="max-w-3xl mx-auto space-y-4"><div className="skeleton h-48 rounded-2xl" /><div className="skeleton h-48 rounded-2xl" /></div>}>
+          <AnalysisResult analysis={analysis} loading={loading} duration={duration} repoName={repoName} />
+        </Suspense>
 
         {/* Copilot CLI Showcase — temporary until 2026-02-16 15:00 BRT */}
         <Suspense fallback={null}>
@@ -558,11 +637,14 @@ function App() {
         </div>
       </footer>
 
-      <ApiKeyModal 
-        isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
-        onSuccess={() => setHasUserKey(true)}
-      />
+      <Suspense fallback={null}>
+        <ApiKeyModal 
+          isOpen={showApiKeyModal}
+          onClose={() => setShowApiKeyModal(false)}
+          onSuccess={() => setHasUserKey(true)}
+        />
+      </Suspense>
+      <ToastContainer position="bottom-right" theme="dark" />
       <SpeedInsights />
     </div>
   );

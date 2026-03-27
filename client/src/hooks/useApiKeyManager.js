@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ApiKeyStorage } from '../lib/apiKeyStorage';
+import { useEffect, useState } from 'react';
+import { ApiKeyStorage, StorageSync } from '../lib/apiKeyStorage';
 import { validateGeminiKey } from '../lib/geminiClient';
 
 export function useApiKeyManager() {
@@ -7,23 +7,37 @@ export function useApiKeyManager() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState(null);
 
+  useEffect(() => {
+    const syncApiKey = () => {
+      setApiKey(ApiKeyStorage.get() || '');
+    };
+
+    window.addEventListener('storage', syncApiKey);
+    window.addEventListener(StorageSync.EVENT_NAME, syncApiKey);
+
+    return () => {
+      window.removeEventListener('storage', syncApiKey);
+      window.removeEventListener(StorageSync.EVENT_NAME, syncApiKey);
+    };
+  }, []);
+
   const saveApiKey = async (key) => {
     setIsValidating(true);
     setValidationError(null);
 
     try {
-      // Valida a key com uma request de teste
-      const isValid = await validateGeminiKey(key);
+      const validationResult = await validateGeminiKey(key);
       
-      if (isValid) {
+      if (validationResult.valid) {
         ApiKeyStorage.set(key);
         ApiKeyStorage.setValidated(true);
         setApiKey(key);
         return { success: true };
-      } else {
-        setValidationError('API Key inválida. Verifique e tente novamente.');
-        return { success: false, error: 'Invalid key' };
       }
+
+      const message = validationResult.error || 'API Key inválida. Verifique e tente novamente.';
+      setValidationError(message);
+      return { success: false, error: message };
     } catch (error) {
       setValidationError('Erro ao validar a key. Tente novamente.');
       return { success: false, error: error.message };

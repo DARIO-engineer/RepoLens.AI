@@ -1,5 +1,26 @@
 import { API_CONFIG } from '../constants/config';
 
+const STORAGE_EVENT = 'repolens:storage-updated';
+const USAGE_COOKIE_KEY = 'repolens_usage_cookie';
+
+function emitStorageUpdate() {
+  window.dispatchEvent(new CustomEvent(STORAGE_EVENT));
+}
+
+function writeCookie(name, value, maxAgeSeconds) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax`;
+}
+
+function readCookie(name) {
+  const match = document.cookie
+    .split(';')
+    .map((chunk) => chunk.trim())
+    .find((chunk) => chunk.startsWith(`${name}=`));
+
+  if (!match) return null;
+  return decodeURIComponent(match.slice(name.length + 1));
+}
+
 /**
  * Gerencia o armazenamento e recuperação de dados de uso
  */
@@ -7,7 +28,10 @@ export const UsageStorage = {
   get() {
     try {
       const data = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USAGE);
-      return data ? JSON.parse(data) : this.getDefault();
+      if (data) return JSON.parse(data);
+
+      const cookieData = readCookie(USAGE_COOKIE_KEY);
+      return cookieData ? JSON.parse(cookieData) : this.getDefault();
     } catch {
       return this.getDefault();
     }
@@ -16,7 +40,7 @@ export const UsageStorage = {
   getDefault() {
     return {
       count: 0,
-      lastReset: Date.now(),
+      firstRequestAt: null,
     };
   },
 
@@ -25,10 +49,15 @@ export const UsageStorage = {
       API_CONFIG.STORAGE_KEYS.USAGE,
       JSON.stringify(usage)
     );
+    writeCookie(USAGE_COOKIE_KEY, JSON.stringify(usage), 60 * 60 * 24 * 7);
+    emitStorageUpdate();
   },
 
   increment() {
     const usage = this.get();
+    if (!usage.firstRequestAt) {
+      usage.firstRequestAt = Date.now();
+    }
     usage.count += 1;
     this.set(usage);
     return usage.count;
@@ -40,8 +69,12 @@ export const UsageStorage = {
 
   shouldReset() {
     const usage = this.get();
-    const elapsed = Date.now() - usage.lastReset;
-    return elapsed > API_CONFIG.RESET_INTERVAL_MS;
+    if (!usage.firstRequestAt) {
+      return false;
+    }
+
+    const elapsed = Date.now() - usage.firstRequestAt;
+    return elapsed >= API_CONFIG.RESET_INTERVAL_MS;
   },
 
   checkAndReset() {
@@ -61,11 +94,13 @@ export const ApiKeyStorage = {
 
   set(key) {
     localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY, key);
+    emitStorageUpdate();
   },
 
   remove() {
     localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
     localStorage.removeItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED);
+    emitStorageUpdate();
   },
 
   exists() {
@@ -77,9 +112,14 @@ export const ApiKeyStorage = {
       API_CONFIG.STORAGE_KEYS.KEY_VALIDATED,
       isValid.toString()
     );
+    emitStorageUpdate();
   },
 
   isValidated() {
     return localStorage.getItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED) === 'true';
   },
+};
+
+export const StorageSync = {
+  EVENT_NAME: STORAGE_EVENT,
 };
