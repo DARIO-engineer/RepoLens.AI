@@ -649,7 +649,9 @@ export default function RepoPersonality({ visible, repoData }) {
 
                 return (
                   <div key={arch.key} className="group relative flex items-center gap-2">
-                    <span className="w-4 text-center cursor-help" style={{ color: arch.color }}>{arch.icon}</span>
+                    <span className="w-4 text-center cursor-help [&>svg]:w-4 [&>svg]:h-4" style={{ color: arch.color }}>
+                      {arch.icon}
+                    </span>
                     <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-1000 ease-out"
@@ -665,7 +667,9 @@ export default function RepoPersonality({ visible, repoData }) {
                     {/* Tooltip */}
                     <div className="absolute bottom-full left-0 mb-2 px-3 py-2 rounded-lg bg-surface/95 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl z-20 w-48">
                       <div className="flex items-center gap-2 mb-1">
-                        <div className="w-4 h-4" style={{ color: arch.color }}>{arch.icon}</div>
+                        <div className="w-4 h-4 [&>svg]:w-4 [&>svg]:h-4" style={{ color: arch.color }}>
+                          {arch.icon}
+                        </div>
                         <span className="text-xs font-bold text-text">{t(`archetype.${arch.key}.label`)}</span>
                         {isTop && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-accent-green/20 text-accent-green font-bold">TOP</span>}
                       </div>
