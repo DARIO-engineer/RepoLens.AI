@@ -31,12 +31,19 @@ export function useApiKeyManager() {
       const validationResult = await validateApiKey(key, selectedProvider);
       
       if (validationResult.valid) {
-        ApiKeyStorage.set(key);
-        ApiKeyStorage.setProvider(selectedProvider);
-        ApiKeyStorage.setValidated(true);
-        setApiKey(key);
-        setProvider(selectedProvider);
-        return { success: true };
+        try {
+          ApiKeyStorage.set(key);
+          ApiKeyStorage.setProvider(selectedProvider);
+          ApiKeyStorage.setValidated(true);
+          setApiKey(key);
+          setProvider(selectedProvider);
+          console.log('[api-key] saved successfully', { provider: selectedProvider });
+          return { success: true };
+        } catch (storageError) {
+          console.log('[api-key] storage save failed', storageError);
+          setValidationError('Erro ao salvar a chave no navegador.');
+          return { success: false, error: 'Storage error' };
+        }
       }
 
       const message = validationResult.error || 'API Key inválida. Verifique e tente novamente.';

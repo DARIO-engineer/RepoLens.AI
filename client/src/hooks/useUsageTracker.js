@@ -27,7 +27,7 @@ export function useUsageTracker() {
   }, []);
 
   const incrementUsage = () => {
-    const newCount = UsageStorage.increment();
+    const newCount = UsageStorage.decrement();
     setUsage(UsageStorage.get());
     return newCount;
   };
@@ -38,11 +38,11 @@ export function useUsageTracker() {
   };
 
   const hasReachedLimit = () => {
-    return usage.count >= API_CONFIG.MAX_FREE_REQUESTS;
+    return usage.count <= 0;
   };
 
   const getRemainingRequests = () => {
-    return Math.max(0, API_CONFIG.MAX_FREE_REQUESTS - usage.count);
+    return Math.max(0, usage.count);
   };
 
   const canMakeRequest = () => {

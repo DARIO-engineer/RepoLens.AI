@@ -168,7 +168,13 @@ export async function analyzeRepository(repoUrl, lang, options = {}) {
       const parsed = JSON.parse(cached);
       // Cache TTL: 24h
       if (Date.now() - parsed.timestamp < 86400000) {
-        return { analysis: parsed.analysis, isUserKey: parsed.isUserKey, fromCache: true };
+        const cachedHours = (Date.now() - parsed.timestamp) / 3600000;
+        return {
+          analysis: parsed.analysis,
+          isUserKey: parsed.isUserKey,
+          fromCache: true,
+          cachedHours,
+        };
       }
     } catch {
       safeStorageRemove(cacheKey);

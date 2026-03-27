@@ -15,6 +15,7 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
 
     const result = await saveApiKey(keyInput.trim(), provider);
     if (result.success) {
+      console.log('[api-key] modal save confirmed');
       toast.success(t("apiKey.modal.success", "✅ API Key validada e salva!"));
       onSuccess?.();
       onClose();

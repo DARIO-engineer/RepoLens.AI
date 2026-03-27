@@ -29,6 +29,20 @@ function readCookie(name) {
   }
 }
 
+function normalizeUsageRecord(parsed) {
+  const max = API_CONFIG.MAX_FREE_REQUESTS;
+  const hasLastReset = Number.isFinite(Number(parsed?.lastReset));
+  const migratedRemaining =
+    parsed?.firstRequestAt && !hasLastReset
+      ? Math.max(0, max - Number(parsed?.count || 0))
+      : Number(parsed?.count);
+
+  return {
+    count: Number.isFinite(migratedRemaining) ? Math.max(0, Math.min(max, migratedRemaining)) : max,
+    lastReset: hasLastReset ? Number(parsed.lastReset) : Date.now(),
+  };
+}
+
 /**
  * Gerencia o armazenamento e recuperação de dados de uso
  */
@@ -37,22 +51,12 @@ export const UsageStorage = {
     try {
       const data = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USAGE);
       if (data) {
-        const parsed = JSON.parse(data);
-        return {
-          count: Number(parsed?.count || 0),
-          firstRequestAt: parsed?.firstRequestAt || null,
-          lastResetAt: parsed?.lastResetAt || parsed?.firstRequestAt || Date.now(),
-        };
+        return normalizeUsageRecord(JSON.parse(data));
       }
 
       const cookieData = readCookie(USAGE_COOKIE_KEY);
       if (cookieData) {
-        const parsed = JSON.parse(cookieData);
-        return {
-          count: Number(parsed?.count || 0),
-          firstRequestAt: parsed?.firstRequestAt || null,
-          lastResetAt: parsed?.lastResetAt || parsed?.firstRequestAt || Date.now(),
-        };
+        return normalizeUsageRecord(JSON.parse(cookieData));
       }
 
       return this.getDefault();
@@ -63,9 +67,8 @@ export const UsageStorage = {
 
   getDefault() {
     return {
-      count: 0,
-      lastResetAt: Date.now(),
-      firstRequestAt: null,
+      count: API_CONFIG.MAX_FREE_REQUESTS,
+      lastReset: Date.now(),
     };
   },
 
@@ -82,15 +85,9 @@ export const UsageStorage = {
     emitStorageUpdate();
   },
 
-  increment() {
+  decrement() {
     const usage = this.get();
-    if (!usage.lastResetAt) {
-      usage.lastResetAt = Date.now();
-    }
-    if (!usage.firstRequestAt) {
-      usage.firstRequestAt = Date.now();
-    }
-    usage.count += 1;
+    usage.count = Math.max(0, Number(usage.count || 0) - 1);
     this.set(usage);
     return usage.count;
   },
@@ -101,12 +98,12 @@ export const UsageStorage = {
 
   shouldReset() {
     const usage = this.get();
-    const referenceTs = usage.lastResetAt || usage.firstRequestAt;
-    if (!referenceTs) {
+    const lastReset = Number(usage?.lastReset || 0);
+    if (!lastReset) {
       return false;
     }
 
-    const elapsed = Date.now() - referenceTs;
+    const elapsed = Date.now() - lastReset;
     return elapsed >= API_CONFIG.RESET_INTERVAL_MS;
   },
 

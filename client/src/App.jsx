@@ -11,6 +11,8 @@ import axios from "axios";
 import { useUsageTracker } from "./hooks/useUsageTracker";
 import { analyzeRepository } from "./lib/geminiClient";
 import { checkRepoExists } from "./lib/githubClient";
+import { StorageSync } from "./lib/apiKeyStorage";
+import { API_CONFIG } from "./constants/config";
 
 // Lazy-loaded heavy components
 const ArchitectureGraph = lazy(() => import("./components/ArchitectureGraph"));
@@ -78,6 +80,7 @@ function App() {
   const [history, setHistory] = useState(loadHistory);
   const [analysisLang, setAnalysisLang] = useState("");
   const [lastFromCache, setLastFromCache] = useState(false);
+  const [cacheAgeHours, setCacheAgeHours] = useState(null);
   const [sharedRepoData, setSharedRepoData] = useState(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(loadServiceUnavailable);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
@@ -99,6 +102,46 @@ function App() {
     lang === "pt" ? "stack" : "stack",
     lang === "pt" ? "saúde do repo" : "repo health",
   ];
+
+  useEffect(() => {
+    try {
+      const rawUsage = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USAGE);
+
+      if (!rawUsage) {
+        const initial = { count: API_CONFIG.MAX_FREE_REQUESTS, lastReset: Date.now() };
+        localStorage.setItem(API_CONFIG.STORAGE_KEYS.USAGE, JSON.stringify(initial));
+        console.log("[usage] initialized", initial);
+        window.dispatchEvent(new CustomEvent(StorageSync.EVENT_NAME));
+        return;
+      }
+
+      const usage = JSON.parse(rawUsage);
+      const lastReset = Number(usage?.lastReset || usage?.lastResetAt || 0);
+      const hoursSinceReset = lastReset ? (Date.now() - lastReset) / 3600000 : Infinity;
+      console.log("[usage] hours since reset", hoursSinceReset);
+
+      if (hoursSinceReset >= 24) {
+        const resetData = { count: API_CONFIG.MAX_FREE_REQUESTS, lastReset: Date.now() };
+        localStorage.setItem(API_CONFIG.STORAGE_KEYS.USAGE, JSON.stringify(resetData));
+        console.log("[usage] auto reset executed", resetData);
+        window.dispatchEvent(new CustomEvent(StorageSync.EVENT_NAME));
+      }
+    } catch (error) {
+      console.log("[usage] reset check failed", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const key = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
+      if (key) {
+        setHasUserKey(true);
+        console.log("[api-key] key restored from localStorage");
+      }
+    } catch (error) {
+      console.log("[api-key] restore failed", error);
+    }
+  }, [setHasUserKey]);
 
   useEffect(() => {
     let active = true;
@@ -165,6 +208,7 @@ function App() {
     setError("");
     setDuration(0);
     setLastFromCache(false);
+    setCacheAgeHours(null);
 
     const start = Date.now();
 
@@ -202,6 +246,7 @@ function App() {
         toast.info(t("analysis.fromCache", "Analysis loaded from cache."));
       }
       setLastFromCache(Boolean(result.fromCache));
+      setCacheAgeHours(Number.isFinite(result.cachedHours) ? result.cachedHours : null);
 
       // Increment usage ONLY if NOT using a personal key
       if (!result.isUserKey && !result.fromCache) {
@@ -594,7 +639,9 @@ function App() {
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/[0.08] border border-primary/20 text-sm backdrop-blur-sm">
               <span className="text-xs text-primary-light">⚡ {t("analysis.cache.badge")}</span>
               <span className="text-text-muted text-xs flex-1">
-                {t("analysis.cache.desc")}
+                {cacheAgeHours !== null
+                  ? `${t("analysis.cache.desc")} (${Math.max(0, Math.floor(cacheAgeHours))}${lang === "pt" ? "h atrás" : "h ago"})`
+                  : t("analysis.cache.desc")}
               </span>
               <button
                 onClick={() => handleAnalyze(currentRepoUrl, { forceRefresh: true })}
