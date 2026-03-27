@@ -18,7 +18,7 @@ const RepoPersonality = lazy(() => import("./components/RepoPersonality"));
 const CopilotBanner = lazy(() => import("./components/CopilotBanner"));
 const AnalysisResult = lazy(() => import("./components/AnalysisResult"));
 const RepoStats = lazy(() => import("./components/RepoStats"));
-const ApiKeyModal = lazy(() => import("./components/ApiKeyModal"));
+const ApiKeyModal = lazy(() => import("./components/ApiKeyModal").then(m => ({ default: m.ApiKeyModal })));
 const UsageIndicator = lazy(() => import("./components/UsageIndicator").then(m => ({ default: m.UsageIndicator })));
 const ApiKeySettings = lazy(() => import("./components/ApiKeySettings").then(m => ({ default: m.ApiKeySettings })));
 
