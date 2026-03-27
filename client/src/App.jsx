@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import RepoForm from "./components/RepoForm";
 import HeroOrb from "./components/HeroOrb";
 import { useI18n } from "./useI18n";
@@ -33,9 +33,13 @@ function loadHistory() {
 }
 
 function saveToHistory(entry) {
-  const history = loadHistory().filter((h) => h.url !== entry.url);
-  history.unshift(entry);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  try {
+    const history = loadHistory().filter((h) => h.url !== entry.url);
+    history.unshift(entry);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  } catch {
+    // Keep app stable if storage is unavailable
+  }
 }
 
 function loadServiceUnavailable() {
@@ -53,12 +57,16 @@ function loadServiceUnavailable() {
 }
 
 function persistServiceUnavailable(state) {
-  if (state?.until && state.until > Date.now()) {
-    localStorage.setItem(AI_OUTAGE_KEY, JSON.stringify(state));
-    return;
-  }
+  try {
+    if (state?.until && state.until > Date.now()) {
+      localStorage.setItem(AI_OUTAGE_KEY, JSON.stringify(state));
+      return;
+    }
 
-  localStorage.removeItem(AI_OUTAGE_KEY);
+    localStorage.removeItem(AI_OUTAGE_KEY);
+  } catch {
+    // Keep app stable if storage is unavailable
+  }
 }
 
 function App() {
@@ -239,7 +247,11 @@ function App() {
   };
 
   const clearHistory = () => {
-    localStorage.removeItem(HISTORY_KEY);
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {
+      // Keep app stable if storage is unavailable
+    }
     setHistory([]);
   };
 

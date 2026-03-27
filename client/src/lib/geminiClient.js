@@ -2,6 +2,30 @@ import axios from 'axios';
 import { ApiKeyStorage } from './apiKeyStorage';
 import { API_CONFIG } from '../constants/config';
 
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures
+  }
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures
+  }
+}
+
 /**
  * Valida se uma API key do Gemini funciona
  */
@@ -64,7 +88,7 @@ export async function validateGeminiKey(apiKey) {
 export async function analyzeRepository(repoUrl, lang, options = {}) {
   const { forceRefresh = false } = options;
   const cacheKey = `repolens_cache_${btoa(repoUrl + "_" + lang)}`;
-  const cached = forceRefresh ? null : localStorage.getItem(cacheKey);
+  const cached = forceRefresh ? null : safeStorageGet(cacheKey);
   let result;
   
   // Cache check (expires if different or manually cleared, but here we just return)
@@ -75,8 +99,8 @@ export async function analyzeRepository(repoUrl, lang, options = {}) {
       if (Date.now() - parsed.timestamp < 3600000) {
         return { analysis: parsed.analysis, isUserKey: parsed.isUserKey, fromCache: true };
       }
-    } catch (e) {
-      localStorage.removeItem(cacheKey);
+    } catch {
+      safeStorageRemove(cacheKey);
     }
   }
 
@@ -85,13 +109,13 @@ export async function analyzeRepository(repoUrl, lang, options = {}) {
   if (userKey) {
     // Rate limiting for personal key (1 request per minute)
     const LAST_REQ_KEY = 'repolens_last_user_request';
-    const lastReq = localStorage.getItem(LAST_REQ_KEY);
+    const lastReq = safeStorageGet(LAST_REQ_KEY);
     const now = Date.now();
     if (lastReq && now - parseInt(lastReq) < 60000) {
       const waitTime = Math.ceil((60000 - (now - parseInt(lastReq))) / 1000);
       throw new Error(`Rate limit: Please wait ${waitTime}s before another analysis.`);
     }
-    localStorage.setItem(LAST_REQ_KEY, now.toString());
+    safeStorageSet(LAST_REQ_KEY, now.toString());
 
     // ... logic for userKey ...
     const prompt = `Analyze this GitHub repository: ${repoUrl}. Language: ${lang}. 
@@ -142,7 +166,7 @@ export async function analyzeRepository(repoUrl, lang, options = {}) {
   }
 
   // Save to cache
-  localStorage.setItem(cacheKey, JSON.stringify({
+  safeStorageSet(cacheKey, JSON.stringify({
     analysis: result.analysis,
     isUserKey: result.isUserKey,
     timestamp: Date.now()

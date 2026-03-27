@@ -8,17 +8,25 @@ function emitStorageUpdate() {
 }
 
 function writeCookie(name, value, maxAgeSeconds) {
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax`;
+  try {
+    document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax`;
+  } catch {
+    // Ignore cookie write failures
+  }
 }
 
 function readCookie(name) {
-  const match = document.cookie
-    .split(';')
-    .map((chunk) => chunk.trim())
-    .find((chunk) => chunk.startsWith(`${name}=`));
+  try {
+    const match = document.cookie
+      .split(';')
+      .map((chunk) => chunk.trim())
+      .find((chunk) => chunk.startsWith(`${name}=`));
 
-  if (!match) return null;
-  return decodeURIComponent(match.slice(name.length + 1));
+    if (!match) return null;
+    return decodeURIComponent(match.slice(name.length + 1));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -45,10 +53,14 @@ export const UsageStorage = {
   },
 
   set(usage) {
-    localStorage.setItem(
-      API_CONFIG.STORAGE_KEYS.USAGE,
-      JSON.stringify(usage)
-    );
+    try {
+      localStorage.setItem(
+        API_CONFIG.STORAGE_KEYS.USAGE,
+        JSON.stringify(usage)
+      );
+    } catch {
+      // Ignore localStorage write failures
+    }
     writeCookie(USAGE_COOKIE_KEY, JSON.stringify(usage), 60 * 60 * 24 * 7);
     emitStorageUpdate();
   },
@@ -89,17 +101,29 @@ export const UsageStorage = {
  */
 export const ApiKeyStorage = {
   get() {
-    return localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
+    try {
+      return localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
+    } catch {
+      return null;
+    }
   },
 
   set(key) {
-    localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY, key);
+    try {
+      localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY, key);
+    } catch {
+      // Ignore localStorage write failures
+    }
     emitStorageUpdate();
   },
 
   remove() {
-    localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
-    localStorage.removeItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED);
+    try {
+      localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
+      localStorage.removeItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED);
+    } catch {
+      // Ignore localStorage remove failures
+    }
     emitStorageUpdate();
   },
 
@@ -108,15 +132,23 @@ export const ApiKeyStorage = {
   },
 
   setValidated(isValid) {
-    localStorage.setItem(
-      API_CONFIG.STORAGE_KEYS.KEY_VALIDATED,
-      isValid.toString()
-    );
+    try {
+      localStorage.setItem(
+        API_CONFIG.STORAGE_KEYS.KEY_VALIDATED,
+        isValid.toString()
+      );
+    } catch {
+      // Ignore localStorage write failures
+    }
     emitStorageUpdate();
   },
 
   isValidated() {
-    return localStorage.getItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED) === 'true';
+    try {
+      return localStorage.getItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED) === 'true';
+    } catch {
+      return false;
+    }
   },
 };
 

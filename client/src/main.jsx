@@ -4,12 +4,15 @@ import './index.css'
 import App from './App.jsx'
 import { I18nProvider } from './i18n.jsx'
 import { Analytics } from '@vercel/analytics/react'
+import { AppErrorBoundary } from './components/AppErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <I18nProvider>
-      <App />
-      <Analytics />
-    </I18nProvider>
+    <AppErrorBoundary>
+      <I18nProvider>
+        <App />
+        <Analytics />
+      </I18nProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 )
