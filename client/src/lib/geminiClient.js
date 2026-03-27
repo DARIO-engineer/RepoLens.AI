@@ -27,7 +27,13 @@ function safeStorageRemove(key) {
 }
 
 function buildAnalysisPrompt(repoUrl, lang) {
-  return `Analyze this GitHub repository: ${repoUrl}. Language: ${lang}. 
+  return `REGRAS CRÍTICAS:
+- Se você NÃO conseguir acessar o código do repo, responda apenas: 'ERRO: Repositório inacessível'
+- NUNCA invente stack, arquitetura ou sugestões para código que você não viu
+- Se repo vazio, responda: 'ERRO: Repositório vazio'
+- Só analise se conseguir VER o código real
+
+Analyze this GitHub repository: ${repoUrl}. Language: ${lang}. 
 Please provide a detailed analysis in ${lang === 'pt' ? 'Portuguese' : 'English'}.
 The response must follow a specific structure with sections like ARCHITECTURAL_SUMMARY, STACK_ANALYSIS, STRENGTHS, WEAKNESSES, SUGGESTIONS, and BEGINNER_TASKS.`;
 }

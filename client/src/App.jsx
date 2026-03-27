@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import RepoForm from "./components/RepoForm";
 import HeroOrb from "./components/HeroOrb";
+import RepoErrorCard from "./components/RepoErrorCard";
 import { useI18n } from "./useI18n";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { toast, ToastContainer } from 'react-toastify';
@@ -10,7 +11,7 @@ import axios from "axios";
 // API Key Management
 import { useUsageTracker } from "./hooks/useUsageTracker";
 import { analyzeRepository } from "./lib/geminiClient";
-import { checkRepoExists } from "./lib/githubClient";
+import { validateRepoBeforeAnalysis } from "./lib/githubClient";
 import { StorageSync } from "./lib/apiKeyStorage";
 import { API_CONFIG } from "./constants/config";
 
@@ -75,6 +76,7 @@ function App() {
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [repoErrorType, setRepoErrorType] = useState(null);
   const [currentRepoUrl, setCurrentRepoUrl] = useState("");
   const [duration, setDuration] = useState(0);
   const [history, setHistory] = useState(loadHistory);
@@ -84,6 +86,7 @@ function App() {
   const [sharedRepoData, setSharedRepoData] = useState(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(loadServiceUnavailable);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [pendingRepoValidation, setPendingRepoValidation] = useState(null);
   const fetchedRepoRef = useRef("");
   const { t, lang, toggleLang } = useI18n();
   const { canMakeRequest, incrementUsage, hasUserKey, setHasUserKey } = useUsageTracker();
@@ -202,36 +205,43 @@ function App() {
       setShowApiKeyModal(true);
       return;
     }
-
-    setLoading(true);
+    
     setAnalysis("");
     setError("");
+    setRepoErrorType(null);
     setDuration(0);
     setLastFromCache(false);
     setCacheAgeHours(null);
+    if (!options.keepPending) {
+      setPendingRepoValidation(null);
+    }
 
     const start = Date.now();
 
     try {
-      const validation = await checkRepoExists(repoUrl);
-      if (!validation.exists) {
-        if (validation.error === "INVALID_FORMAT") {
-          throw new Error(t("repo.validation.invalidFormat"));
-        }
-        if (validation.error === "NOT_FOUND") {
-          throw new Error(t("repo.validation.notFound"));
-        }
-        if (validation.error === "NETWORK_ERROR") {
-          throw new Error(t("repo.validation.network"));
-        }
-        if (validation.error === "FORBIDDEN") {
-          throw new Error(t("repo.validation.forbidden"));
-        }
-        throw new Error(t("repo.validation.generic"));
+      const validation = options.prevalidated || await validateRepoBeforeAnalysis(repoUrl);
+      if (!validation.canProceed) {
+        setRepoErrorType(validation.error || "API_ERROR");
+        const messageByType = {
+          INVALID_FORMAT: t("repo.validation.invalidFormat"),
+          NOT_FOUND: "Repositório não encontrado ou é privado",
+          NETWORK_ERROR: t("repo.validation.network"),
+          FORBIDDEN: "Rate limit do GitHub. Tente em 1 min",
+          PRIVATE: "Este repositório é privado. Análise indisponível.",
+          EMPTY: "Repositório vazio. Não há código para analisar.",
+        };
+        throw new Error(messageByType[validation.error] || t("repo.validation.generic"));
+      }
+
+      if (!options.confirmed) {
+        setPendingRepoValidation(validation);
+        return;
       }
 
       const normalizedRepoUrl = validation.repoUrl;
       setCurrentRepoUrl(normalizedRepoUrl);
+      setPendingRepoValidation(null);
+      setLoading(true);
 
       const result = await analyzeRepository(normalizedRepoUrl, lang, options);
       const elapsed = Date.now() - start;
@@ -478,6 +488,35 @@ function App() {
                 disabledPlaceholder={serviceUnavailable?.placeholder || t("service.placeholder")}
                 disabledReason={t("service.description")}
               />
+
+              {pendingRepoValidation?.repoData && (
+                <div className="animate-fade-in mt-5 max-w-3xl mx-auto p-5 rounded-[1.6rem] bg-white/[0.03] border border-white/[0.08]">
+                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted/70 mb-3">
+                    {lang === "pt" ? "Preview do repositório" : "Repository preview"}
+                  </p>
+                  <div className="space-y-1.5 text-sm text-text-muted">
+                    <p><span className="text-text font-semibold">Nome:</span> {pendingRepoValidation.repoData.full_name}</p>
+                    <p><span className="text-text font-semibold">Descrição:</span> {pendingRepoValidation.repoData.description || "—"}</p>
+                    <p><span className="text-text font-semibold">Linguagem:</span> {pendingRepoValidation.repoData.language || "—"}</p>
+                    <p><span className="text-text font-semibold">Stars/Forks:</span> {pendingRepoValidation.repoData.stargazers_count || 0} / {pendingRepoValidation.repoData.forks_count || 0}</p>
+                    <p><span className="text-text font-semibold">Atualizado:</span> {new Date(pendingRepoValidation.repoData.updated_at).toLocaleString()}</p>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => handleAnalyze(pendingRepoValidation.repoPath, { confirmed: true, prevalidated: pendingRepoValidation, keepPending: true })}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary/20 border border-primary/30 text-primary-light hover:bg-primary/30 transition-all cursor-pointer"
+                    >
+                      {lang === "pt" ? "Confirmar análise" : "Confirm analysis"}
+                    </button>
+                    <button
+                      onClick={() => setPendingRepoValidation(null)}
+                      className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/[0.03] border border-white/[0.08] text-text-muted hover:text-text transition-all cursor-pointer"
+                    >
+                      {lang === "pt" ? "Cancelar" : "Cancel"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="relative animate-fade-in-scale" style={{ animationDelay: '220ms' }}>
@@ -585,7 +624,22 @@ function App() {
         </section>
 
         {/* Error */}
-        {error && (
+        {repoErrorType && (
+          <RepoErrorCard
+            type={repoErrorType}
+            onRetry={() => {
+              setRepoErrorType(null);
+              setError("");
+            }}
+            onUseExample={(repo) => {
+              setRepoErrorType(null);
+              setError("");
+              handleAnalyze(repo);
+            }}
+          />
+        )}
+
+        {error && !repoErrorType && (
           <div role="alert" aria-live="assertive" className="animate-fade-in max-w-3xl mx-auto mb-8 p-4 rounded-[1.5rem] bg-danger/[0.08] border border-danger/15 text-danger text-sm backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

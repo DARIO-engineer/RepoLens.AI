@@ -47,25 +47,49 @@ export function normalizeRepoInput(input) {
 }
 
 export async function checkRepoExists(input) {
+  const validation = await validateRepoBeforeAnalysis(input);
+  return { exists: validation.canProceed, error: validation.error, ...validation };
+}
+
+export async function validateRepoBeforeAnalysis(input) {
   try {
     const normalized = normalizeRepoInput(input);
     if (!normalized.valid) {
-      return { exists: false, error: 'INVALID_FORMAT' };
+      return { canProceed: false, error: 'INVALID_FORMAT' };
     }
 
     const response = await fetch(`https://api.github.com/repos/${normalized.repoPath}`);
     
     if (response.status === 404) {
-      return { exists: false, error: 'NOT_FOUND' };
+      return { canProceed: false, error: 'NOT_FOUND', ...normalized };
     }
     
     if (response.status === 403) {
-      return { exists: false, error: 'FORBIDDEN' };
+      return { canProceed: false, error: 'FORBIDDEN', ...normalized };
     }
 
-    return { exists: response.ok, error: response.ok ? null : 'API_ERROR', ...normalized };
+    if (!response.ok) {
+      return { canProceed: false, error: 'API_ERROR', ...normalized };
+    }
+
+    const repoData = await response.json();
+
+    if (repoData?.private) {
+      return { canProceed: false, error: 'PRIVATE', ...normalized, repoData };
+    }
+
+    if (Number(repoData?.size || 0) === 0) {
+      return { canProceed: false, error: 'EMPTY', ...normalized, repoData };
+    }
+
+    return {
+      canProceed: true,
+      error: null,
+      ...normalized,
+      repoData,
+    };
   } catch (error) {
     console.error('Error checking repo existence:', error);
-    return { exists: false, error: 'NETWORK_ERROR' };
+    return { canProceed: false, error: 'NETWORK_ERROR' };
   }
 }

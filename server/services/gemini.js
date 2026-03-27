@@ -89,7 +89,13 @@ export class GeminiService {
             ? ""
             : "IMPORTANT: Write ALL analysis content in American English. The section KEYS (RESUMO_ARQUITETURAL, PONTOS_FORTES, etc.) must stay as-is, but all descriptions, bullet points, and paragraphs must be in English.\n\n";
 
-        return `${langPreamble}GitHub repository data for analysis:
+        return `${langPreamble}REGRAS CRÍTICAS:
+- Se você NÃO conseguir acessar o código do repo, responda apenas: 'ERRO: Repositório inacessível'
+- NUNCA invente stack, arquitetura ou sugestões para código que você não viu
+- Se repo vazio, responda: 'ERRO: Repositório vazio'
+- Só analise se conseguir VER o código real
+
+GitHub repository data for analysis:
 
 Name: ${repoData.name}
 Description: ${repoData.description || noDesc}
