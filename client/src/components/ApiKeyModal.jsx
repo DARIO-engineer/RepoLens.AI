@@ -5,14 +5,15 @@ import { toast } from 'react-toastify';
 
 export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
   const [keyInput, setKeyInput] = useState('');
-  const { saveApiKey, isValidating, validationError } = useApiKeyManager();
+  const { saveApiKey, provider: storedProvider, isValidating, validationError } = useApiKeyManager();
+  const [provider, setProvider] = useState(storedProvider || 'gemini');
   const { t } = useI18n();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!keyInput.trim()) return;
 
-    const result = await saveApiKey(keyInput.trim());
+    const result = await saveApiKey(keyInput.trim(), provider);
     if (result.success) {
       toast.success(t("apiKey.modal.success", "✅ API Key validada e salva!"));
       onSuccess?.();
@@ -23,6 +24,10 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
   };
 
   if (!isOpen) return null;
+
+  const helpUrl = provider === 'openrouter'
+    ? 'https://openrouter.ai/settings/keys'
+    : 'https://aistudio.google.com/app/apikey';
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-3 sm:p-4 animate-fade-in" onClick={onClose}>
@@ -61,6 +66,38 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
 
           <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
             <div className="space-y-2">
+              <label className="block text-sm font-medium text-text-muted">
+                {t("apiKey.modal.providerLabel", "Provider")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProvider('gemini')}
+                  disabled={isValidating}
+                  className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                    provider === 'gemini'
+                      ? 'bg-primary/12 border-primary/35 text-primary-light'
+                      : 'bg-white/[0.02] border-white/[0.08] text-text-muted hover:text-text'
+                  }`}
+                >
+                  {t("apiKey.modal.providerGemini", "Gemini")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProvider('openrouter')}
+                  disabled={isValidating}
+                  className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                    provider === 'openrouter'
+                      ? 'bg-primary/12 border-primary/35 text-primary-light'
+                      : 'bg-white/[0.02] border-white/[0.08] text-text-muted hover:text-text'
+                  }`}
+                >
+                  {t("apiKey.modal.providerOpenRouter", "OpenRouter")}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <label htmlFor="api-key" className="block text-sm font-medium text-text-muted">
                 {t("apiKey.modal.label")}
               </label>
@@ -82,12 +119,16 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
 
             <div className="flex items-center justify-center">
               <a 
-                href="https://aistudio.google.com/app/apikey" 
+                href={helpUrl}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-primary-light hover:text-primary transition-colors text-sm font-medium"
               >
-                <span>📚 {t("apiKey.modal.help")}</span>
+                <span>
+                  📚 {provider === 'openrouter'
+                    ? t("apiKey.modal.helpOpenRouter", "How to get an OpenRouter API key?")
+                    : t("apiKey.modal.helpGemini", "How to get a Gemini API key?")}
+                </span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>

@@ -36,10 +36,26 @@ export const UsageStorage = {
   get() {
     try {
       const data = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USAGE);
-      if (data) return JSON.parse(data);
+      if (data) {
+        const parsed = JSON.parse(data);
+        return {
+          count: Number(parsed?.count || 0),
+          firstRequestAt: parsed?.firstRequestAt || null,
+          lastResetAt: parsed?.lastResetAt || parsed?.firstRequestAt || Date.now(),
+        };
+      }
 
       const cookieData = readCookie(USAGE_COOKIE_KEY);
-      return cookieData ? JSON.parse(cookieData) : this.getDefault();
+      if (cookieData) {
+        const parsed = JSON.parse(cookieData);
+        return {
+          count: Number(parsed?.count || 0),
+          firstRequestAt: parsed?.firstRequestAt || null,
+          lastResetAt: parsed?.lastResetAt || parsed?.firstRequestAt || Date.now(),
+        };
+      }
+
+      return this.getDefault();
     } catch {
       return this.getDefault();
     }
@@ -48,6 +64,7 @@ export const UsageStorage = {
   getDefault() {
     return {
       count: 0,
+      lastResetAt: Date.now(),
       firstRequestAt: null,
     };
   },
@@ -67,6 +84,9 @@ export const UsageStorage = {
 
   increment() {
     const usage = this.get();
+    if (!usage.lastResetAt) {
+      usage.lastResetAt = Date.now();
+    }
     if (!usage.firstRequestAt) {
       usage.firstRequestAt = Date.now();
     }
@@ -81,11 +101,12 @@ export const UsageStorage = {
 
   shouldReset() {
     const usage = this.get();
-    if (!usage.firstRequestAt) {
+    const referenceTs = usage.lastResetAt || usage.firstRequestAt;
+    if (!referenceTs) {
       return false;
     }
 
-    const elapsed = Date.now() - usage.firstRequestAt;
+    const elapsed = Date.now() - referenceTs;
     return elapsed >= API_CONFIG.RESET_INTERVAL_MS;
   },
 
@@ -117,9 +138,27 @@ export const ApiKeyStorage = {
     emitStorageUpdate();
   },
 
+  getProvider() {
+    try {
+      return localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_API_PROVIDER) || 'gemini';
+    } catch {
+      return 'gemini';
+    }
+  },
+
+  setProvider(provider) {
+    try {
+      localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_API_PROVIDER, provider);
+    } catch {
+      // Ignore localStorage write failures
+    }
+    emitStorageUpdate();
+  },
+
   remove() {
     try {
       localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_API_KEY);
+      localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_API_PROVIDER);
       localStorage.removeItem(API_CONFIG.STORAGE_KEYS.KEY_VALIDATED);
     } catch {
       // Ignore localStorage remove failures

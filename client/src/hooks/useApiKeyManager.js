@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { ApiKeyStorage, StorageSync } from '../lib/apiKeyStorage';
-import { validateGeminiKey } from '../lib/geminiClient';
+import { validateApiKey } from '../lib/geminiClient';
 
 export function useApiKeyManager() {
   const [apiKey, setApiKey] = useState(ApiKeyStorage.get() || '');
+  const [provider, setProvider] = useState(ApiKeyStorage.getProvider());
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState(null);
 
   useEffect(() => {
     const syncApiKey = () => {
       setApiKey(ApiKeyStorage.get() || '');
+      setProvider(ApiKeyStorage.getProvider());
     };
 
     window.addEventListener('storage', syncApiKey);
@@ -21,17 +23,19 @@ export function useApiKeyManager() {
     };
   }, []);
 
-  const saveApiKey = async (key) => {
+  const saveApiKey = async (key, selectedProvider = 'gemini') => {
     setIsValidating(true);
     setValidationError(null);
 
     try {
-      const validationResult = await validateGeminiKey(key);
+      const validationResult = await validateApiKey(key, selectedProvider);
       
       if (validationResult.valid) {
         ApiKeyStorage.set(key);
+        ApiKeyStorage.setProvider(selectedProvider);
         ApiKeyStorage.setValidated(true);
         setApiKey(key);
+        setProvider(selectedProvider);
         return { success: true };
       }
 
@@ -58,6 +62,7 @@ export function useApiKeyManager() {
 
   return {
     apiKey,
+    provider,
     saveApiKey,
     removeApiKey,
     hasApiKey: hasApiKey(),

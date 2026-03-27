@@ -285,7 +285,7 @@ function LoadingMessages() {
   useEffect(() => {
     const timer = setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % messages.length);
-    }, 2500);
+    }, 5000);
     return () => clearInterval(timer);
   }, [messages.length]);
 

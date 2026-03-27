@@ -12,7 +12,11 @@ export function normalizeRepoInput(input) {
   const urlMatch = value.match(/^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git|\/)?$/i);
   if (urlMatch) {
     const owner = urlMatch[1];
-    const repo = urlMatch[2];
+    const repo = urlMatch[2].replace(/\.git$/i, '');
+    const strictPath = `${owner}/${repo}`;
+    if (!/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(strictPath)) {
+      return { valid: false, error: 'INVALID_FORMAT' };
+    }
     return {
       valid: true,
       owner,
@@ -26,6 +30,10 @@ export function normalizeRepoInput(input) {
   if (pathMatch) {
     const owner = pathMatch[1];
     const repo = pathMatch[2].replace(/\.git$/i, '');
+    const strictPath = `${owner}/${repo}`;
+    if (!/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(strictPath)) {
+      return { valid: false, error: 'INVALID_FORMAT' };
+    }
     return {
       valid: true,
       owner,

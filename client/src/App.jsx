@@ -177,6 +177,9 @@ function App() {
         if (validation.error === "NOT_FOUND") {
           throw new Error(t("repo.validation.notFound"));
         }
+        if (validation.error === "NETWORK_ERROR") {
+          throw new Error(t("repo.validation.network"));
+        }
         if (validation.error === "FORBIDDEN") {
           throw new Error(t("repo.validation.forbidden"));
         }
@@ -288,6 +291,12 @@ function App() {
             <Suspense fallback={<div className="w-24 h-8 bg-white/5 rounded-full animate-pulse" />}>
               <UsageIndicator />
             </Suspense>
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[11px] font-semibold text-text-muted hover:text-text hover:border-primary/30 transition-all cursor-pointer"
+            >
+              🔑 {t("apiKey.cta.use")}
+            </button>
             {/* Language Toggle */}
             <button
               onClick={toggleLang}

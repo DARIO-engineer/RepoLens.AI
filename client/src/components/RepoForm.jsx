@@ -11,7 +11,7 @@ export default function RepoForm({ onAnalyze, loading, disabled = false, disable
     if (repoUrl.trim()) onAnalyze(repoUrl.trim());
   };
 
-  const isValidUrl = repoUrl.trim().match(/^(?:https:\/\/github\.com\/)?([^/\s]+\/[^/\s]+?)(?:\.git|\/)?$/);
+  const isValidUrl = repoUrl.trim().match(/^(?:https:\/\/github\.com\/)?([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)(?:\.git|\/)?$/);
   const displayValue = disabled ? "" : repoUrl;
 
   return (
