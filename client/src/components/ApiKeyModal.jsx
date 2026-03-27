@@ -109,7 +109,7 @@ export function ApiKeyModal({ isOpen, onClose, onSuccess }) {
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
                 disabled={isValidating}
-                className={`w-full bg-black/20 border-2 rounded-xl px-4 py-3 text-text font-mono text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                className={`w-full bg-black/20 border-2 rounded-xl px-4 py-3 text-text font-mono text-base sm:text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${
                   validationError ? 'border-danger/50' : 'border-white/5 focus:border-primary/50'
                 }`}
               />
