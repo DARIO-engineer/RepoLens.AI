@@ -74,18 +74,23 @@ function isAiQuotaError(error) {
         ""
     ).toLowerCase();
     const providerStatus = String(error?.response?.data?.error?.status || "").toLowerCase();
+    const hasQuotaSignal =
+        providerStatus.includes("quota") ||
+        providerMessage.includes("quota") ||
+        providerMessage.includes("exceeded your current quota") ||
+        providerMessage.includes("billing");
+    const isResourceExhaustedQuotaLike =
+        providerStatus.includes("resource_exhausted") &&
+        (
+            providerMessage.includes("quota") ||
+            providerMessage.includes("billing") ||
+            providerMessage.includes("daily limit") ||
+            providerMessage.includes("per day")
+        );
 
     return (
         isAiProviderError(error) &&
-        (
-            statusCode === 429 ||
-            providerStatus.includes("resource_exhausted") ||
-            providerStatus.includes("quota") ||
-            providerMessage.includes("quota") ||
-            providerMessage.includes("resource exhausted") ||
-            providerMessage.includes("rate limit") ||
-            providerMessage.includes("too many requests")
-        )
+        (hasQuotaSignal || isResourceExhaustedQuotaLike || (statusCode === 429 && hasQuotaSignal))
     );
 }
 
@@ -158,7 +163,7 @@ export async function analyzeRepository(req, res) {
             isAiProviderError(error) &&
             repoData &&
             languages &&
-            [401, 403, 404, 429, 500].includes(statusCode);
+            [401, 403, 404, 408, 429, 500, 502, 503, 504].includes(statusCode);
 
         if (useFallback) {
             const fallbackReason =

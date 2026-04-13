@@ -55,6 +55,47 @@ export class GeminiService {
         return discoveredModels;
     }
 
+    isModelNotFoundError(error) {
+        const status = error?.response?.status;
+        const code = error?.response?.data?.error?.code;
+        const message = String(
+            error?.response?.data?.error?.message ||
+            error?.message ||
+            ""
+        ).toLowerCase();
+
+        return (
+            status === 404 ||
+            code === 404 ||
+            message.includes("not found") ||
+            message.includes("not supported")
+        );
+    }
+
+    isRetryableGenerationError(error) {
+        const status = error?.response?.status;
+        const providerStatus = String(error?.response?.data?.error?.status || "").toLowerCase();
+        const message = String(
+            error?.response?.data?.error?.message ||
+            error?.message ||
+            ""
+        ).toLowerCase();
+
+        return (
+            [408, 429, 500, 502, 503, 504].includes(status) ||
+            providerStatus.includes("unavailable") ||
+            providerStatus.includes("resource_exhausted") ||
+            providerStatus.includes("deadline_exceeded") ||
+            providerStatus.includes("internal") ||
+            message.includes("high demand") ||
+            message.includes("temporarily unavailable") ||
+            message.includes("overloaded") ||
+            message.includes("try again later") ||
+            message.includes("resource exhausted") ||
+            message.includes("rate limit")
+        );
+    }
+
     buildPrompt(repoData, languages, readmeContent, tree, lang = "en") {
         const languageEntries = Object.entries(languages || {});
         const totalBytes = languageEntries.reduce((sum, [, bytes]) => sum + Number(bytes || 0), 0);
@@ -347,17 +388,19 @@ CRITICAL RULES:
                     err.aiProvider = "gemini";
                     lastError = err;
                     const status = err.response?.status;
-                    const code = err.response?.data?.error?.code;
-                    const message = err.response?.data?.error?.message || "";
-                    const isModelNotFound =
-                        status === 404 ||
-                        code === 404 ||
-                        message.includes("not found") ||
-                        message.includes("not supported");
+                    const isModelNotFound = this.isModelNotFoundError(err);
+                    const isRetryable = this.isRetryableGenerationError(err);
 
-                    if (!isModelNotFound) {
-                        throw err;
+                    if (isModelNotFound || isRetryable) {
+                        console.warn(
+                            `[Gemini] ${
+                                isModelNotFound ? "model not found" : "transient provider error"
+                            } (status=${status || "n/a"}) on model=${model}, api=${apiVersion}. Trying next candidate.`
+                        );
+                        continue;
                     }
+
+                    throw err;
                 }
             }
         }
