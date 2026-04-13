@@ -6,6 +6,8 @@ export class GeminiService {
         this.preferredModel = process.env.GEMINI_MODEL?.trim();
         this.apiVersions = ["v1beta", "v1"];
         this.fallbackModels = [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
             "gemini-1.5-flash",
@@ -41,7 +43,7 @@ export class GeminiService {
                             m.supportedGenerationMethods.includes("generateContent")
                     )
                     .map((m) => (m.name || "").replace(/^models\//, ""))
-                    .filter(Boolean);
+                    .filter((name) => name && /gemini/i.test(name));
 
                 if (models.length) {
                     discoveredModels = models;
@@ -92,7 +94,10 @@ export class GeminiService {
             message.includes("overloaded") ||
             message.includes("try again later") ||
             message.includes("resource exhausted") ||
-            message.includes("rate limit")
+            message.includes("rate limit") ||
+            message.includes("developer instruction is not enabled") ||
+            message.includes("developer instructions are not enabled") ||
+            message.includes("system instruction is not enabled")
         );
     }
 

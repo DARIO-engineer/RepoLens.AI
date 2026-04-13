@@ -17,9 +17,9 @@ RepoLens AI is a web application that provides instant, comprehensive analysis o
 - **Suggestions** — Actionable improvement ideas
 - **Beginner Tasks** — Good first issues for new contributors
 
-## Powered by Google Gemini AI
+## Powered by Gemini + OpenRouter Failover
 
-RepoLens AI leverages Google's Gemini models for intelligent repository analysis. The backend features **automatic model discovery and fallback** — it detects which Gemini models are available on your API key and selects the best one:
+RepoLens AI uses Gemini as the default provider for repository analysis. The backend features **automatic model discovery and fallback** — it detects which Gemini models are available on your API key and selects the best one:
 
 | Priority | Model | Use Case |
 |----------|-------|----------|
@@ -27,6 +27,8 @@ RepoLens AI leverages Google's Gemini models for intelligent repository analysis
 | 2nd | Gemini 2.0 Flash Lite | Lightweight fallback |
 | 3rd | Gemini 1.5 Flash | Stable alternative |
 | 4th | Gemini 1.5 Pro | Deep analysis fallback |
+
+If Gemini is temporarily unavailable or quota-limited, RepoLens can automatically switch to **OpenRouter** (when `OPENROUTER_API_KEY` is configured) to keep analyses running.
 
 > **Gemini 2.5 Pro compatible** — If you set `GEMINI_MODEL=gemini-2.5-pro` in your `.env`, RepoLens AI will use it as the preferred model. The auto-discovery system also detects Gemini 2.5 models automatically when available on your API key.
 
@@ -58,7 +60,7 @@ $ gh copilot suggest "create an SVG pentagon radar chart in React without any ch
 | Layer | Technologies |
 |-------|-------------|
 | Frontend | React 19, Vite 7.3, TailwindCSS v4, Pure SVG |
-| Backend | Express 5, Google Gemini AI (2.0 Flash + auto-fallback), GitHub REST API |
+| Backend | Express 5, Google Gemini AI (default) + OpenRouter failover, GitHub REST API |
 | Deploy | Vercel (serverless functions) |
 | Performance | React.lazy code-splitting, shared API fetch, Vercel Speed Insights |
 | Accessibility | WCAG landmarks, ARIA labels, focus-visible, prefers-reduced-motion |
@@ -75,6 +77,9 @@ npm install
 echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
 # Optional: Specify a preferred model
 echo "GEMINI_MODEL=gemini-2.0-flash" >> .env
+# Optional: enable automatic OpenRouter fallback when Gemini fails
+echo "OPENROUTER_API_KEY=your_openrouter_api_key_here" >> .env
+echo "OPENROUTER_MODEL=openrouter/auto" >> .env
 node index.js
 ```
 

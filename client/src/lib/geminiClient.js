@@ -166,6 +166,78 @@ function buildCacheKey(repoUrl, lang) {
   return `cache_${owner}_${repo}_${lang}`;
 }
 
+function normalizeGeminiModelName(name) {
+  return String(name || '').replace(/^models\//i, '').trim();
+}
+
+function isGeminiModelCompatible(name) {
+  const normalized = normalizeGeminiModelName(name).toLowerCase();
+  return normalized.includes('gemini');
+}
+
+function getGeminiModelCandidates(discoveredModels = []) {
+  return [...new Set([
+    ...(API_CONFIG.GEMINI_MODEL_CANDIDATES || []),
+    ...discoveredModels,
+  ])].filter((model) => isGeminiModelCompatible(model));
+}
+
+async function discoverGeminiModels(apiKey) {
+  const versions = API_CONFIG.GEMINI_API_VERSIONS || ['v1beta', 'v1'];
+
+  for (const apiVersion of versions) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/${apiVersion}/models?key=${apiKey}`
+      );
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+      const models = (data?.models || [])
+        .filter((model) =>
+          Array.isArray(model?.supportedGenerationMethods)
+          && model.supportedGenerationMethods.includes('generateContent')
+        )
+        .map((model) => normalizeGeminiModelName(model?.name))
+        .filter((model) => model && isGeminiModelCompatible(model));
+
+      if (models.length > 0) {
+        return models;
+      }
+    } catch {
+      // Try next API version.
+    }
+  }
+
+  return [];
+}
+
+function isGeminiModelUnsupportedError(status, message = '') {
+  const normalizedMessage = String(message || '').toLowerCase();
+  return (
+    status === 404
+    || normalizedMessage.includes('is not found')
+    || normalizedMessage.includes('not supported for generatecontent')
+    || normalizedMessage.includes('developer instruction is not enabled')
+    || normalizedMessage.includes('models/')
+  );
+}
+
+function isGeminiRetryableError(status, message = '') {
+  const normalizedMessage = String(message || '').toLowerCase();
+  return (
+    [408, 429, 500, 502, 503, 504].includes(status)
+    || normalizedMessage.includes('high demand')
+    || normalizedMessage.includes('temporarily unavailable')
+    || normalizedMessage.includes('try again later')
+    || normalizedMessage.includes('overloaded')
+    || normalizedMessage.includes('rate limit')
+  );
+}
+
 /**
  * Valida se uma API key do Gemini funciona
  */
@@ -176,44 +248,25 @@ export async function validateGeminiKey(apiKey) {
   }
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${trimmedKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: 'test' }]
-          }]
-        }),
-      }
-    );
+    await requestGeminiAnalysis({
+      apiKey: trimmedKey,
+      prompt: 'Reply only with the word OK.',
+      maxOutputTokens: 64,
+    });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      const status = response.status;
-      const providerMessage = error?.error?.message;
-      console.error('Gemini Key Validation failed:', error);
-
-      if (status === 400 || status === 401 || status === 403) {
-        return {
-          valid: false,
-          error: providerMessage || 'API Key inválida. Verifique e tente novamente.',
-        };
-      }
-
-      return {
-        valid: false,
-        error: providerMessage || 'Não foi possível validar a API Key agora.',
-      };
-    }
-
-    const data = await response.json();
     return {
-      valid: !!data.candidates?.[0]?.content?.parts?.[0]?.text,
+      valid: true,
       error: null,
     };
   } catch (error) {
+    const message = String(error?.message || '');
+    if (message) {
+      return {
+        valid: false,
+        error: message,
+      };
+    }
+
     console.error('Key validation error:', error);
     return {
       valid: false,
@@ -315,33 +368,72 @@ async function requestOpenRouterAnalysis({ apiKey, prompt, lang }) {
   return content;
 }
 
-async function requestGeminiAnalysis({ apiKey, prompt }) {
-  const response = await fetch(
-    `${API_CONFIG.GEMINI_API_URL}?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }],
-        }],
-        generationConfig: {
-          temperature: 0.35,
-          topK: 40,
-          topP: 0.9,
-          maxOutputTokens: 4096,
-        },
-      }),
-    }
-  );
+async function requestGeminiAnalysis({ apiKey, prompt, maxOutputTokens = 4096 }) {
+  const discoveredModels = await discoverGeminiModels(apiKey);
+  const modelCandidates = getGeminiModelCandidates(discoveredModels);
+  const apiVersions = API_CONFIG.GEMINI_API_VERSIONS || ['v1beta', 'v1'];
+  let lastError;
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error?.error?.message || 'API request failed');
+  for (const model of modelCandidates) {
+    for (const apiVersion of apiVersions) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: prompt }],
+              }],
+              generationConfig: {
+                temperature: 0.35,
+                topK: 40,
+                topP: 0.9,
+                maxOutputTokens,
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          const status = response.status;
+          const providerMessage = error?.error?.message || error?.message || 'API request failed';
+          lastError = new Error(providerMessage);
+
+          if (
+            isGeminiModelUnsupportedError(status, providerMessage)
+            || isGeminiRetryableError(status, providerMessage)
+          ) {
+            continue;
+          }
+
+          throw lastError;
+        }
+
+        const data = await response.json();
+        const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (content) {
+          return content;
+        }
+        lastError = new Error(`Empty response from Gemini model ${model}`);
+      } catch (error) {
+        lastError = error;
+        const message = error?.message || '';
+        if (
+          isGeminiModelUnsupportedError(undefined, message)
+          || isGeminiRetryableError(undefined, message)
+        ) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
   }
 
-  const data = await response.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  throw lastError || new Error('No compatible Gemini model found for this API key.');
 }
 
 /**

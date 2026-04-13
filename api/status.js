@@ -1,5 +1,8 @@
 import { applyApiHeaders, buildAiUnavailablePayload } from "../server/services/apiResponses.js";
 import { getAiAvailability } from "../server/services/serviceState.js";
+import { OpenRouterService } from "../server/services/openrouter.js";
+
+const openRouterService = new OpenRouterService();
 
 export default function handler(req, res) {
     applyApiHeaders(res);
@@ -14,8 +17,9 @@ export default function handler(req, res) {
 
     const lang = req.query?.lang === "pt" ? "pt" : "en";
     const availability = getAiAvailability();
+    const hasOpenRouterFallback = openRouterService.isConfigured();
 
-    if (availability.available) {
+    if (availability.available || hasOpenRouterFallback) {
         return res.status(200).json({
             ok: true,
             serviceUnavailable: null,

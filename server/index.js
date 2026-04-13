@@ -4,9 +4,11 @@ import cors from "cors";
 import analyzeRouter from "./routes/analyze.js";
 import { applyApiHeaders, buildAiUnavailablePayload } from "./services/apiResponses.js";
 import { getAiAvailability } from "./services/serviceState.js";
+import { OpenRouterService } from "./services/openrouter.js";
 
 const app = express();
 app.disable("x-powered-by");
+const openRouterService = new OpenRouterService();
 
 // Middleware
 app.use(cors());
@@ -28,8 +30,9 @@ app.get("/health", (_req, res) => {
 app.get("/status", (req, res) => {
     const lang = req.query?.lang === "pt" ? "pt" : "en";
     const availability = getAiAvailability();
+    const hasOpenRouterFallback = openRouterService.isConfigured();
 
-    if (availability.available) {
+    if (availability.available || hasOpenRouterFallback) {
         return res.json({
             ok: true,
             serviceUnavailable: null,
